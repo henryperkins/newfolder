@@ -1,0 +1,10 @@
+.chatRoot { display:flex; flex-direction:column; height:100%; }
+.header { padding:0.5rem 1rem; border-bottom:1px solid #e5e5e5; font-size:0.875rem; display:flex; justify-content:space-between; }
+.messagesWrapper { flex:1; overflow-y:auto; padding:1rem; }
+.inputWrapper { border-top:1px solid #e5e5e5; padding:0.5rem 1rem; }
+.loadingContainer, .errorContainer { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:0.5rem; }
+.spinner { animation: spin 1s linear infinite; }
+.errorIcon {}
+.newIndicator { position:sticky; bottom:1rem; margin:auto; }
+.emptyState { text-align:center; color:#888; margin-top:2rem; }
+@keyframes spin { to { transform: rotate(360deg);} }

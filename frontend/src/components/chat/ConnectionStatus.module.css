@@ -1,0 +1,7 @@
+.banner { display:flex; align-items:center; gap:0.5rem; padding:0.25rem 0.5rem; font-size:0.75rem; }
+.connecting { background:#fef9c3; }
+.disconnected { background:#fee2e2; }
+.error { background:#fecaca; }
+.retryBtn { margin-left:auto; }
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg);} }

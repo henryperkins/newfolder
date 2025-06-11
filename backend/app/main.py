@@ -8,6 +8,9 @@ import asyncio
 from datetime import datetime
 from .core.config import settings
 from .routes import auth_router, users_router, projects_router, templates_router, tags_router, activities_router
+# Chat routes (Phase-3)
+from .routes.chat_routes import router as chat_router
+
 from .dependencies.auth import (
     get_websocket_user, 
     get_connection_manager, 
@@ -50,6 +53,8 @@ app.include_router(projects_router)
 app.include_router(templates_router)
 app.include_router(tags_router)
 app.include_router(activities_router)
+# Newly added chat endpoints
+app.include_router(chat_router)
 
 
 @app.get("/")
@@ -60,3 +65,16 @@ async def root():
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
+
+
+# ---------------------------------------------------------------------------
+# Background tasks (heartbeat monitor etc.)
+# ---------------------------------------------------------------------------
+
+from .services.websocket_manager import connection_manager
+
+
+@app.on_event("startup")
+async def _startup_chat_tasks():  # noqa: D401 – internal helper
+    # Ensure heartbeat coroutine is running.
+    await connection_manager.start_monitoring()

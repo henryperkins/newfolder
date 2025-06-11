@@ -1,0 +1,21 @@
+.messageRow {}
+.avatar {}
+.messageBubble {}
+.userMessage {}
+.assistantMessage {}
+.focused {}
+.deleted {}
+.header {}
+.sender {}
+.timestamp {}
+.editedLabel {}
+.contentArea {}
+.deletedText {}
+.expandBtn {}
+.metadata {}
+.model {}
+.tokens {}
+.actions {}
+.copyFeedback {}
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { from { transform: rotate(0deg);} to { transform: rotate(360deg);} }
