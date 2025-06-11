@@ -15,3 +15,5 @@ export const ThreadHeader: React.FC<ThreadHeaderProps> = ({ thread }) => {
     </header>
   );
 };
+
+export default ThreadHeader;

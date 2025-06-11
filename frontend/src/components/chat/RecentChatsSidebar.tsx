@@ -29,3 +29,5 @@ export const RecentChatsSidebar: React.FC<RecentChatsSidebarProps> = ({ threads,
     </aside>
   );
 };
+
+export default RecentChatsSidebar;

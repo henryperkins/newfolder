@@ -107,7 +107,6 @@
   .focus-visible\:ring-primary-500:focus-visible {
     @apply ring-blue-500;
   }
-}
 
 @keyframes fadeIn {
   from {
@@ -130,4 +129,5 @@
     transform: scale(1);
   }
 }
+
 }

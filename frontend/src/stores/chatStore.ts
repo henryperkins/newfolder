@@ -39,8 +39,14 @@ export interface ChatStoreActions {
 
   // Local helpers
   streamMessage: (msg: ChatMessage) => void;
-  addStreamChunk: (messageId: string, chunk: string, isFinal: boolean) => Promise<void>;
+  addStreamChunk: (messageId: string, chunk: string, isFinal?: boolean) => Promise<void>;
   setActiveThreadId: (threadId: string | null) => void;
+
+  // WebSocket helpers expected by UI components
+  startStreaming: (messageId: string) => void;
+  completeStreaming: (messageId: string, finalContent: string) => void;
+  updateMessageInStore: (message: ChatMessage) => void;
+  removeMessageFromStore: (messageId: string) => void;
 }
 
 export type ChatStore = ChatStoreState & ChatStoreActions;
@@ -85,6 +91,67 @@ export const useChatStore = create<ChatStore>()(
           s.isLoadingThread = false;
         });
         throw err;
+      }
+    },
+
+    // ---------------------------------------------------------
+    // Helpers wired to WebSocket events
+    // ---------------------------------------------------------
+
+    startStreaming(messageId) {
+      for (const [, list] of get().messages.entries()) {
+        const msg = list.find((m) => m.id === messageId);
+        if (msg) {
+          set((s) => {
+            s.streamingMessage = msg;
+          });
+          break;
+        }
+      }
+    },
+
+    completeStreaming(messageId, finalContent) {
+      for (const [threadId, list] of get().messages.entries()) {
+        const idx = list.findIndex((m: ChatMessage) => m.id === messageId);
+        if (idx !== -1) {
+          set((s) => {
+            const target = s.messages.get(threadId)![idx];
+            if (finalContent) {
+              target.content = finalContent;
+            }
+            s.streamingMessage = null;
+          });
+          break;
+        }
+      }
+    },
+
+    updateMessageInStore(message) {
+      const threadId = message.thread_id;
+      set((s) => {
+        const list = s.messages.get(threadId) ?? [];
+        const idx = list.findIndex((m: ChatMessage) => m.id === message.id);
+        if (idx !== -1) {
+          list[idx] = message;
+        } else {
+          list.push(message);
+        }
+        s.messages.set(threadId, [...list]);
+      });
+    },
+
+    removeMessageFromStore(messageId) {
+      for (const [threadId, list] of get().messages.entries()) {
+        const idx = list.findIndex((m: ChatMessage) => m.id === messageId);
+        if (idx !== -1) {
+          set((s) => {
+            s.messages.set(
+              threadId,
+              list.filter((m) => m.id !== messageId),
+            );
+          });
+          break;
+        }
       }
     },
 
@@ -134,7 +201,7 @@ export const useChatStore = create<ChatStore>()(
         // Replace placeholder by id
         set((s) => {
           const list = s.messages.get(threadId) ?? [];
-          const idx = list.findIndex((m) => m.id === tempId);
+          const idx = list.findIndex((m: ChatMessage) => m.id === tempId);
           if (idx !== -1) {
             list[idx] = saved;
             s.messages.set(threadId, [...list]);
@@ -144,7 +211,7 @@ export const useChatStore = create<ChatStore>()(
         // mark failed
         set((s) => {
           const list = s.messages.get(threadId) ?? [];
-          const idx = list.findIndex((m) => m.id === tempId);
+          const idx = list.findIndex((m: ChatMessage) => m.id === tempId);
           if (idx !== -1) {
             list[idx].metadata = { failed: true };
           }
@@ -159,7 +226,7 @@ export const useChatStore = create<ChatStore>()(
       const threadId = updated.thread_id;
       set((s) => {
         const list = s.messages.get(threadId) ?? [];
-        const idx = list.findIndex((m) => m.id === messageId);
+        const idx = list.findIndex((m: ChatMessage) => m.id === messageId);
         if (idx !== -1) {
           list[idx] = updated;
           s.messages.set(threadId, [...list]);
@@ -171,7 +238,7 @@ export const useChatStore = create<ChatStore>()(
       await chatApi.deleteMessage(messageId);
       // remove locally
       for (const [threadId, list] of get().messages.entries()) {
-        const idx = list.findIndex((m) => m.id === messageId);
+        const idx = list.findIndex((m: ChatMessage) => m.id === messageId);
         if (idx !== -1) {
           set((s) => {
             s.messages.set(
@@ -200,10 +267,10 @@ export const useChatStore = create<ChatStore>()(
       });
     },
 
-    async addStreamChunk(messageId, chunk, isFinal) {
+    async addStreamChunk(messageId, chunk, isFinal = false) {
       // helper to merge chunk into message
       for (const [threadId, list] of get().messages.entries()) {
-        const idx = list.findIndex((m) => m.id === messageId);
+        const idx = list.findIndex((m: ChatMessage) => m.id === messageId);
         if (idx !== -1) {
           set((s) => {
             const target = s.messages.get(threadId)![idx];

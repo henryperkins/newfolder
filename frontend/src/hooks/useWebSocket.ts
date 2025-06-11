@@ -158,7 +158,7 @@ export const useWebSocket = ({
 
   const close = () => {
     cleanup();
-    setStatus('disconnected');
+    setStatus(WebSocketStatus.DISCONNECTED);
   };
 
   const reconnect = () => {

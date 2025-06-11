@@ -1,8 +1,7 @@
-export { ChatView } from './ChatView';
-export { MessageBubble } from './MessageBubble';
-export { StreamingText } from './StreamingText';
-export { ChatInputBarProps as _ChatInputBarProps } from './ChatView';
-export { RecentChatsSidebar } from './RecentChatsSidebar';
-export { ConnectionStatus } from './ConnectionStatus';
-export { ThreadHeader } from './ThreadHeader';
-export { ContextIndicator } from './ContextIndicator';
+export { default as ChatView } from './ChatView';
+export { default as MessageBubble } from './MessageBubble';
+export { default as StreamingText } from './StreamingText';
+export { default as RecentChatsSidebar } from './RecentChatsSidebar';
+export { default as ConnectionStatus } from './ConnectionStatus';
+export { default as ThreadHeader } from './ThreadHeader';
+export { default as ContextIndicator } from './ContextIndicator';

@@ -66,33 +66,17 @@ git clone <repository-url>
 cd ai-productivity-app
 ```
 
-### 2. Environment Configuration
-Copy the example environment file and configure your settings:
-```bash
-cp backend/.env.example backend/.env
-```
-
-Edit `backend/.env` with your configuration:
-```env
-SECRET_KEY=your-super-secret-key-change-this-in-production
-DATABASE_URL=postgresql://postgres:postgres@db:5432/ai_productivity_app
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USERNAME=your-email@gmail.com
-SMTP_PASSWORD=your-app-password
-```
-
-### 3. Launch the Application
+### 2. Launch the Application
 ```bash
 docker-compose up -d
 ```
 
-The application will be available at:
+# 🎉  After the images finish building, the application will be available at:
 - **Frontend**: http://localhost:3000
 - **Backend API**: http://localhost:8000
 - **API Documentation**: http://localhost:8000/docs
 
-### 4. Create Your Account
+### 3. Create Your Account
 1. Navigate to http://localhost:3000
 2. Click "Sign up" to create the first (and only) user account
 3. Complete the registration form
