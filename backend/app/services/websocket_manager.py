@@ -559,20 +559,125 @@ class ConnectionManager:  # noqa: D401
                                 await ws.close(code=1000, reason="Heartbeat timeout")
                             except Exception:
                                 pass
-                            await self._disconnect_internal(conn_id, thread_id, ws)
 
-            # Loop continues indefinitely until the event loop is closed.
+    # ------------------------------------------------------------------
+    # Public startup helper (FastAPI)                                    
+    # ------------------------------------------------------------------
+
+    async def start_monitoring(self) -> None:  # noqa: D401
+        """Ensure heartbeat task is started (idempotent)."""
+
+        if any(
+            isinstance(t, asyncio.Task) and not t.done()
+            for t in asyncio.all_tasks()
+            if getattr(t, "__qualname__", "").endswith("_monitor_heartbeats")
+        ):
+            return  # Already running.
+
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(self._monitor_heartbeats())
+        except RuntimeError:
+            # Not in async context – caller will have to start manually.
+            pass
 
 
 # ---------------------------------------------------------------------------
-# Module-level singleton (defined *after* ConnectionManager class)            
+# Redis-backed broadcast wrapper                                             
 # ---------------------------------------------------------------------------
 
-# Instantiate the global connection manager so that all parts of the
-# application share the same in-memory registry.
+try:
+    import redis.asyncio as _redis_async  # type: ignore
 
-connection_manager = ConnectionManager()
+    class RedisConnectionManager(ConnectionManager):  # noqa: D401 – subclass mix-in
+        """Drop-in replacement that mirrors ConnectionManager API but broadcasts
+        messages across workers using Redis pub/sub so that horizontal
+        scaling works out-of-the-box when multiple backend containers run
+        behind a load-balancer.
+        """
 
-# Re-export for convenience.
+        CHANNEL_PREFIX = "chat_thread:"
+
+        def __init__(self, redis_url: str):  # noqa: D401 – constructor
+            super().__init__()
+
+            self._redis = _redis_async.from_url(redis_url, decode_responses=False)
+            self._subscriber_task: Optional[asyncio.Task] = None
+
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                loop = None
+
+            if loop and loop.is_running():
+                self._subscriber_task = loop.create_task(self._listen())
+
+        # ------------------------------------------------------------------
+        # Overridden helpers                                                
+        # ------------------------------------------------------------------
+
+        async def send_message(
+            self,
+            thread_id: str,
+            message: Dict[str, object],
+            *,
+            exclude_websocket: Optional[WebSocket] = None,
+        ) -> None:  # noqa: D401
+            # 1. broadcast locally (same process) – needed for echo.
+            await super().send_message(thread_id, message, exclude_websocket=exclude_websocket)
+
+            # 2. fan-out to Redis so that *other* workers can relay.
+            try:
+                await self._redis.publish(self.CHANNEL_PREFIX + thread_id, json.dumps(message))
+            except Exception:
+                # Fallback: Redis might be down – we still served local clients.
+                pass
+
+        # ------------------------------------------------------------------
+        # Internal – listen to pub/sub                                      
+        # ------------------------------------------------------------------
+
+        async def _listen(self):  # noqa: D401 – background task
+            pubsub = self._redis.pubsub()
+            await pubsub.psubscribe(self.CHANNEL_PREFIX + "*")
+
+            async for msg in pubsub.listen():
+                if msg["type"] != "pmessage":  # noqa: WPS110 – Redis naming
+                    continue
+                try:
+                    channel: str = msg["channel"].decode()
+                    payload = json.loads(msg["data"])
+                except Exception:
+                    continue
+
+                # Extract thread_id from channel name.
+                thread_id = channel.split(":", 1)[-1]
+                # Broadcast to *local* websockets only (avoid echo-storm).
+                await super().send_message(thread_id, payload)
+
+except ModuleNotFoundError:  # pragma: no cover – redis optional
+    RedisConnectionManager = None  # type: ignore  # noqa: N816 – exposed symbol
+
+# ---------------------------------------------------------------------------
+# Global singleton factory                                                   
+# ---------------------------------------------------------------------------
+
+import os as _os
+
+
+def _create_connection_manager() -> ConnectionManager:  # noqa: D401 – helper
+    redis_url = _os.getenv("REDIS_URL")
+    if redis_url and RedisConnectionManager is not None:
+        try:
+            return RedisConnectionManager(redis_url)
+        except Exception:  # redis unavailable – fallback
+            pass
+    return ConnectionManager()
+
+
+# Singleton instance used by FastAPI dependency.
+connection_manager: ConnectionManager = _create_connection_manager()
+
+# Re-export for convenience so callers can `from services.websocket_manager import connection_manager`.
 __all__.append("connection_manager")
 

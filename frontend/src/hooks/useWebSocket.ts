@@ -10,18 +10,20 @@ import type { ChatMessage } from '../types/chat';
  *
  * The semantics follow plan3.md §1 “useWebSocket” description.
  */
+import { WebSocketStatus } from '@/types/websocket';
+
 export interface UseWebSocketOptions {
-  url: string;                              // full ws://… or relative URL
+  url: string | null;                       // full ws://… or relative URL; null → disabled
   token?: string;                           // JWT (optional)
   reconnectAttempts?: number;               // default 5
   heartbeatInterval?: number;               // ms, default 30 000
+  onMessage?: (msg: any) => void;           // custom handler invoked after internal processing
 }
 
-type Status = 'connecting' | 'connected' | 'disconnected' | 'error';
-
 export interface WebSocketHandle {
-  status: Status;
-  sendJson: (data: Record<string, unknown>) => void;
+  status: WebSocketStatus;
+  sendMessage: (data: Record<string, unknown>) => void;
+  reconnect: () => void;
   close: () => void;
 }
 
@@ -30,8 +32,9 @@ export const useWebSocket = ({
   token,
   reconnectAttempts = 5,
   heartbeatInterval = 30_000,
+  onMessage,
 }: UseWebSocketOptions): WebSocketHandle => {
-  const [status, setStatus] = useState<Status>('connecting');
+  const [status, setStatus] = useState<WebSocketStatus>(WebSocketStatus.CONNECTING);
   const wsRef = useRef<WebSocket | null>(null);
   const attemptsRef = useRef(0);
   const heartbeatTimer = useRef<number | null>(null);
@@ -56,28 +59,34 @@ export const useWebSocket = ({
   };
 
   const connect = useCallback(() => {
-    cleanup();
-    setStatus('connecting');
+    if (!url) return; // nothing to do when url is null
 
-    const fullUrl = token ? `${url}?token=${token}` : url;
-    const ws = new WebSocket(fullUrl);
+    cleanup();
+    setStatus(WebSocketStatus.CONNECTING);
+
+    // If the caller passes a relative URL we auto-upgrade to ws(s) scheme.
+    const scheme = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    const fullUrl = url.startsWith('ws://') || url.startsWith('wss://') ? url : `${scheme}://${window.location.host}${url}`;
+    const wsWithToken = token ? `${fullUrl}?token=${token}` : fullUrl;
+
+    const ws = new WebSocket(wsWithToken);
     wsRef.current = ws;
 
     ws.onopen = () => {
       attemptsRef.current = 0;
-      setStatus('connected');
+      setStatus(WebSocketStatus.CONNECTED);
       startHeartbeat();
     };
 
     ws.onerror = () => {
-      setStatus('error');
+      setStatus(WebSocketStatus.ERROR);
     };
 
     ws.onclose = () => {
-      setStatus('disconnected');
+      setStatus(WebSocketStatus.DISCONNECTED);
       cleanup();
       // schedule reconnect if attempts left
-      if (attemptsRef.current < reconnectAttempts) {
+      if (url && attemptsRef.current < reconnectAttempts) {
         const delay = 1000 * Math.pow(2, attemptsRef.current); // exponential
         attemptsRef.current += 1;
         setTimeout(connect, delay);
@@ -115,22 +124,33 @@ export const useWebSocket = ({
         // ignore
         break;
     }
+
+    if (onMessage) {
+      try {
+        onMessage(msg);
+      } catch {
+        // swallow errors from user handler
+      }
+    }
   };
 
   // -------------------------------------------------------------
   // Lifecycle
   // -------------------------------------------------------------
   useEffect(() => {
-    connect();
+    if (url) {
+      connect();
+    }
     return () => {
       cleanup();
     };
-  }, [connect]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connect, url]);
 
   // -------------------------------------------------------------
   // Public API
   // -------------------------------------------------------------
-  const sendJson = (data: Record<string, unknown>) => {
+  const sendMessage = (data: Record<string, unknown>) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify(data));
     }
@@ -141,5 +161,10 @@ export const useWebSocket = ({
     setStatus('disconnected');
   };
 
-  return { status, sendJson, close };
+  const reconnect = () => {
+    attemptsRef.current = 0;
+    connect();
+  };
+
+  return { status, sendMessage, reconnect, close };
 };

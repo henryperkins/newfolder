@@ -23,6 +23,7 @@ services:
       DATABASE_URL: postgresql://postgres:postgres@db:5432/ai_productivity_app
       SECRET_KEY: your-super-secret-key-change-this-in-production
       DEBUG: "false"
+      REDIS_URL: redis://redis:6379/0
       SMTP_HOST: smtp.gmail.com
       SMTP_PORT: 587
       SMTP_USERNAME: your-email@gmail.com
@@ -30,6 +31,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_started
     ports:
       - "8000:8000"
     volumes:
@@ -46,6 +49,12 @@ services:
       - "3000:80"
     depends_on:
       - backend
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
 
 volumes:
   postgres_data:

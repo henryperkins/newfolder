@@ -49,15 +49,18 @@ async def get_current_user(
 
 
 # Chat-related dependencies
-_connection_manager = None
+# ---------------------------------------------------------------------------
+# Singleton services                                                         
+# ---------------------------------------------------------------------------
+
+from ..services.websocket_manager import connection_manager as _global_cm
+
 _ai_provider = None
 
-def get_connection_manager() -> ConnectionManager:
-    """Get singleton WebSocket connection manager"""
-    global _connection_manager
-    if _connection_manager is None:
-        _connection_manager = ConnectionManager()
-    return _connection_manager
+
+def get_connection_manager() -> ConnectionManager:  # noqa: D401
+    """Return process-wide :class:`ConnectionManager` (Redis-aware if enabled)."""
+    return _global_cm
 
 
 def get_ai_provider() -> OpenAIProvider:

@@ -1,13 +1,38 @@
 import React from 'react';
 
-export const ContextIndicator: React.FC<{ percent: number }> = ({ percent }) => {
-  const colour = percent > 95 ? 'bg-red-500' : percent > 80 ? 'bg-yellow-400' : 'bg-emerald-500';
+interface ContextIndicatorProps {
+  usedTokens: number;
+  maxTokens: number;
+}
+
+/**
+ * Displays a horizontal bar that turns yellow when 80 % of the context window
+ * is used and red when 95 % is exceeded, as outlined in Phase-3 spec.
+ */
+export const ContextIndicator: React.FC<ContextIndicatorProps> = ({
+  usedTokens,
+  maxTokens,
+}) => {
+  const ratio = Math.min(usedTokens / maxTokens, 1);
+  const percent = Math.round(ratio * 100);
+
+  let barColor = 'bg-green-500';
+  if (ratio >= 0.95) barColor = 'bg-red-500';
+  else if (ratio >= 0.8) barColor = 'bg-yellow-400';
+
   return (
-    <div className="flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400">
-      <div className="w-20 h-1 bg-neutral-200 dark:bg-neutral-700 rounded">
-        <div className={`h-full rounded ${colour}`} style={{ width: `${percent}%` }} />
+    <div className="my-2">
+      <div className="h-2 w-full bg-slate-200 rounded-full overflow-hidden">
+        <div
+          className={`${barColor} h-full`} // width via inline style
+          style={{ width: `${percent}%` }}
+        />
       </div>
-      <span>{percent}%</span>
+      <div className="text-right text-xs text-slate-500 mt-1">
+        {usedTokens}/{maxTokens} tokens
+      </div>
     </div>
   );
 };
+
+export default ContextIndicator;

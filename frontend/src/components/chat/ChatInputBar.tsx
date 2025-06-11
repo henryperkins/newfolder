@@ -90,7 +90,20 @@ const ChatInputBar: React.FC<Props> = ({
         </button>
       </div>
       {showSuggestions && suggestions.length > 0 && (
-        <div className={styles.suggestions}>{/* TODO */}</div>
+        <div className={styles.suggestions}>
+          {suggestions.map((sug, idx) => (
+            <button
+              key={idx}
+              type="button"
+              onClick={() => {
+                setText(sug);
+                setShowSuggestions(false);
+              }}
+            >
+              {sug}
+            </button>
+          ))}
+        </div>
       )}
     </div>
   );

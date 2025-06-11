@@ -1,12 +1,14 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AppLayout, LoginPage, RegistrationPage, ResetPasswordPage, ProtectedRoute } from '@/components';
-import { DashboardPage, SettingsPage, ProjectsPage, ChatsPage } from '@/pages';
+import { DashboardPage, SettingsPage, ProjectsPage, ChatsPage, ComponentsShowcasePage } from '@/pages';
+import { ToastProvider } from '@/components/ui';
 
 function App() {
   return (
-    <Router>
-      <Routes>
+    <ToastProvider>
+      <Router>
+        <Routes>
         {/* Public routes */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegistrationPage />} />
@@ -53,12 +55,23 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/components"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <ComponentsShowcasePage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
 
         {/* Default redirects */}
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
-      </Routes>
-    </Router>
+        </Routes>
+      </Router>
+    </ToastProvider>
   );
 }
 
