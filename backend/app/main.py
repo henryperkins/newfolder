@@ -7,7 +7,16 @@ import json
 import asyncio
 from datetime import datetime
 from .core.config import settings
-from .routes import auth_router, users_router, projects_router, templates_router, tags_router, activities_router
+# Routers including Phase-4 documents
+from .routes import (
+    auth_router,
+    users_router,
+    projects_router,
+    templates_router,
+    tags_router,
+    activities_router,
+    documents_router,
+)
 # Chat routes (Phase-3)
 from .routes.chat_routes import router as chat_router
 
@@ -53,6 +62,8 @@ app.include_router(projects_router)
 app.include_router(templates_router)
 app.include_router(tags_router)
 app.include_router(activities_router)
+# Phase-4 documents router
+app.include_router(documents_router)
 # Newly added chat endpoints
 app.include_router(chat_router)
 

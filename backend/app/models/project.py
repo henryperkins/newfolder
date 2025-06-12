@@ -27,6 +27,8 @@ class Project(Base):
     activities = relationship("ActivityLog", back_populates="project")
     # Chat threads relationship – added for Phase-3 chat feature.
     chat_threads = relationship("ChatThread", back_populates="project", cascade="all, delete-orphan")
+    # Documents – Phase 4
+    documents = relationship("Document", back_populates="project", cascade="all, delete-orphan")
 
     # Constraints
     __table_args__ = (

@@ -5,6 +5,8 @@ from .tag import Tag
 from .project_tag import ProjectTag
 # Existing exports
 from .activity import ActivityLog, ActivityType
+# Phase-4 document models ----------------------------------------------------
+from .document import Document, DocumentVersion, ChatDocumentReference  # noqa: WPS433 – re-export
 
 # Phase-3 chat models -------------------------------------------------------
 from .chat import ChatThread, ChatMessage, ChatSummary  # noqa: WPS433 – re-export
@@ -20,6 +22,9 @@ __all__ = [
     "ChatThread",
     "ChatMessage",
     "ChatSummary",
+    "Document",
+    "DocumentVersion",
+    "ChatDocumentReference",
 ]
 
 # ---------------------------------------------------------------------------

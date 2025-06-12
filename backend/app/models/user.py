@@ -20,6 +20,8 @@ class User(Base):
 
     # Relationships
     projects = relationship("Project", back_populates="user", cascade="all, delete-orphan")
+    # Documents – Phase 4
+    documents = relationship("Document", back_populates="user")
     tags = relationship("Tag", back_populates="user", cascade="all, delete-orphan")
     activities = relationship("ActivityLog", back_populates="user")
     # Chat relationships – Phase-3.

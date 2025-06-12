@@ -86,6 +86,54 @@ def get_chat_service(
     """Get chat service instance"""
     return ChatService(db, ai_provider)
 
+# ---------------------------------------------------------------------------
+# Phase 4 additional dependency providers
+# ---------------------------------------------------------------------------
+
+
+# Lazy imports to avoid circular dependencies during startup if optional libs
+# are missing in certain environments.
+
+
+def _lazy_import_vector_service():
+    from backend.app.services.vector_db_service import VectorDBService
+    return VectorDBService()
+
+
+def _lazy_import_file_processor():
+    from backend.app.services.file_processor_service import FileProcessorService
+    return FileProcessorService()
+
+
+def _lazy_import_rag_service(vector_db, ai_provider):
+    from backend.app.services.rag_service import RAGService
+    return RAGService(vector_db, ai_provider)
+
+
+_vector_db_singleton = None
+
+
+def get_vector_db_service():
+    """Get vector database service instance"""
+    global _vector_db_singleton
+    if _vector_db_singleton is None:
+        _vector_db_singleton = _lazy_import_vector_service()
+    return _vector_db_singleton
+
+
+def get_file_processor_service():
+    """Get file processor service instance"""
+    return _lazy_import_file_processor()
+
+
+def get_rag_service(
+    vector_db=Depends(get_vector_db_service),
+    ai_provider=Depends(get_ai_provider)
+):
+    """Get RAG service instance"""
+    return _lazy_import_rag_service(vector_db, ai_provider)
+
+
 
 async def get_websocket_user(
     websocket: WebSocket,
@@ -122,3 +170,73 @@ async def get_websocket_user(
         raise HTTPException(status_code=401, detail="User not found or inactive")
 
     return user
+
+# ---------------------------------------------------------------------------
+# Phase-4 optional service factories ---------------------------------------
+# ---------------------------------------------------------------------------
+
+# The heavy-weight Phase-4 dependencies (vector database, file processor, RAG
+# service) are optional in the sandbox so we import lazily and provide minimal
+# fallbacks when the real packages are absent.
+
+
+try:
+    from backend.app.services.vector_db_service import VectorDBService  # noqa: WPS433
+    from backend.app.services.file_processor_service import FileProcessorService  # noqa: WPS433
+    from backend.app.services.rag_service import RAGService  # noqa: WPS433
+    from backend.app.services.ai_provider import AIProvider  # noqa: WPS433
+
+except Exception:  # pragma: no cover – graceful degradation
+
+    class VectorDBService:  # type: ignore[misc]
+        """Tiny placeholder used when the real service cannot be imported."""
+
+        pass
+
+    class FileProcessorService:  # type: ignore[misc]
+        pass
+
+    class RAGService:  # type: ignore[misc]
+        def __init__(self, *_: object, **__: object) -> None:  # noqa: D401
+            pass
+
+    class AIProvider:  # type: ignore[misc]
+        pass
+
+
+_vector_db_singleton: VectorDBService | None = None
+
+
+def get_vector_db_service() -> VectorDBService:  # noqa: D401
+    """Return a process-wide *VectorDBService* instance."""
+
+    global _vector_db_singleton
+    if _vector_db_singleton is None:
+        _vector_db_singleton = VectorDBService()  # type: ignore[call-arg]
+    return _vector_db_singleton
+
+
+def get_file_processor_service() -> FileProcessorService:  # noqa: D401
+    """Instantiate :class:`FileProcessorService`."""
+
+    return FileProcessorService()  # type: ignore[call-arg]
+
+
+def get_rag_service(
+    vector_db: VectorDBService | None = None,
+    ai_provider: AIProvider | None = None,
+) -> RAGService:  # noqa: D401
+    """Wire dependencies together and return a **RAGService** instance."""
+
+    if vector_db is None:
+        vector_db = get_vector_db_service()
+    if ai_provider is None:
+        # Re-use the chat AI provider factory if available; otherwise fallback
+        try:
+            from backend.app.dependencies.auth import get_ai_provider  # type: ignore
+
+            ai_provider = get_ai_provider()  # type: ignore[call-arg]
+        except Exception:
+            ai_provider = AIProvider()  # type: ignore[call-arg]
+
+    return RAGService(vector_db, ai_provider)  # type: ignore[call-arg]

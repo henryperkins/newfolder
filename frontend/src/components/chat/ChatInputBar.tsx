@@ -1,9 +1,11 @@
 import React, { useState, useRef, useEffect, KeyboardEvent } from 'react';
 import { Send, Paperclip } from 'lucide-react';
+import { useDocumentStore } from '@/stores/documentStore';
 import { useDebounce } from '../../hooks/useDebounce';
 import styles from './ChatInputBar.module.css';
 
 interface Props {
+  projectId: string;
   onSend: (text: string, files?: File[]) => void;
   onTyping?: () => void;
   isDisabled?: boolean;
@@ -12,6 +14,7 @@ interface Props {
 }
 
 const ChatInputBar: React.FC<Props> = ({
+  projectId,
   onSend,
   onTyping,
   isDisabled,
@@ -20,9 +23,11 @@ const ChatInputBar: React.FC<Props> = ({
 }) => {
   const [text, setText] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [attachments, setAttachments] = useState<File[]>([]);
+  const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const { uploadDocument } = useDocumentStore();
 
   // Debounce typing notification
   const debounced = useDebounce(text, 400);
@@ -37,13 +42,29 @@ const ChatInputBar: React.FC<Props> = ({
     textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`;
   }, [text]);
 
+  // Handle file attachment
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setAttachedFile(file);
+      // Upload immediately
+      try {
+        await uploadDocument(projectId, file);
+        // Add reference in message
+        setText(prev => prev + (prev ? '\n' : '') + `[Attached: ${file.name}]`);
+      } catch (error) {
+        console.error('Failed to upload file:', error);
+      }
+      setAttachedFile(null);
+    }
+  };
+
   // Send helper
   const send = () => {
     const value = text.trim();
     if (!value) return;
-    onSend(value, attachments);
+    onSend(value);
     setText('');
-    setAttachments([]);
     setShowSuggestions(false);
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
   };
@@ -58,49 +79,60 @@ const ChatInputBar: React.FC<Props> = ({
 
   return (
     <div className={styles.wrapper}>
-      {attachments.length > 0 && (
+      {attachedFile && (
         <div className={styles.attachPreview}>
-          {attachments.map((f) => (
-            <span key={f.name}>{f.name}</span>
-          ))}
+          <span>{attachedFile.name}</span>
+          <button onClick={() => setAttachedFile(null)}>×</button>
         </div>
       )}
-      <textarea
-        ref={textareaRef}
-        className={styles.textarea}
-        placeholder={placeholder}
-        value={text}
-        disabled={isDisabled}
-        onChange={(e) => setText(e.target.value)}
-        onKeyDown={handleKey}
-      />
-      <div className={styles.actions}>
-        <button onClick={() => fileRef.current?.click()} disabled={isDisabled}>
-          <Paperclip size={18} />
-        </button>
-        <input
-          ref={fileRef}
-          type="file"
-          multiple
-          hidden
-          onChange={(e) => setAttachments(Array.from(e.target.files || []))}
+
+      <div className="flex items-end gap-2">
+        <textarea
+          ref={textareaRef}
+          className={styles.textarea}
+          placeholder={placeholder}
+          value={text}
+          disabled={isDisabled}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={handleKey}
         />
-        <button onClick={send} disabled={isDisabled || !text.trim()}>
-          <Send size={18} />
-        </button>
+
+        <div className={styles.actions}>
+          <button
+            onClick={() => fileRef.current?.click()}
+            disabled={isDisabled}
+            title="Attach document"
+          >
+            <Paperclip size={18} />
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            hidden
+            onChange={handleFileSelect}
+            accept=".pdf,.docx,.doc,.txt,.md,.csv"
+          />
+          <button
+            onClick={send}
+            disabled={isDisabled || !text.trim()}
+            title="Send message"
+          >
+            <Send size={18} />
+          </button>
+        </div>
       </div>
+
       {showSuggestions && suggestions.length > 0 && (
         <div className={styles.suggestions}>
-          {suggestions.map((sug, idx) => (
+          {suggestions.map((suggestion, i) => (
             <button
-              key={idx}
-              type="button"
+              key={i}
               onClick={() => {
-                setText(sug);
+                setText(suggestion);
                 setShowSuggestions(false);
               }}
             >
-              {sug}
+              {suggestion}
             </button>
           ))}
         </div>

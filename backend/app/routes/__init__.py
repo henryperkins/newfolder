@@ -4,5 +4,14 @@ from .projects import router as projects_router
 from .templates import router as templates_router
 from .tags import router as tags_router
 from .activities import router as activities_router
+from .documents import router as documents_router
 
-__all__ = ["auth_router", "users_router", "projects_router", "templates_router", "tags_router", "activities_router"]
+__all__ = [
+    "auth_router",
+    "users_router",
+    "projects_router",
+    "templates_router",
+    "tags_router",
+    "activities_router",
+    "documents_router",
+]
