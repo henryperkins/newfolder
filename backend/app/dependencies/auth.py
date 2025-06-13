@@ -1,11 +1,12 @@
 from fastapi import Depends, HTTPException, Request, WebSocket
 from sqlalchemy.orm import Session
-from ..core.database import get_db
+from ..core.database import get_db, get_async_db
 from ..core.config import settings
 from ..models.user import User
 from ..services.security import SecurityService
 from ..services.email import EmailService
 from ..services.chat_service import ChatService
+from ..services.document_service import DocumentService
 from ..services.websocket_manager import ConnectionManager
 from ..services.ai_provider import OpenAIProvider, AIProviderFactory
 
@@ -79,12 +80,27 @@ def get_ai_provider() -> OpenAIProvider:
     return _ai_provider
 
 
-def get_chat_service(
-    db: Session = Depends(get_db),
-    ai_provider: OpenAIProvider = Depends(get_ai_provider)
-) -> ChatService:
-    """Get chat service instance"""
+from sqlalchemy.ext.asyncio import AsyncSession  # moved here to avoid optional dep issues
+
+
+async def get_chat_service(
+    db: AsyncSession = Depends(get_async_db),
+    ai_provider: OpenAIProvider = Depends(get_ai_provider),
+) -> ChatService:  # type: ignore[valid-type]
+    """Return ChatService bound to *async* session."""
+
     return ChatService(db, ai_provider)
+
+
+# ---------------------------------------------------------------------------
+# Document service (async)                                                   
+# ---------------------------------------------------------------------------
+
+
+async def get_document_service(
+    db: AsyncSession = Depends(get_async_db),
+) -> DocumentService:  # noqa: D401 – dependency provider
+    return DocumentService(db)
 
 # ---------------------------------------------------------------------------
 # Phase 4 additional dependency providers

@@ -227,8 +227,15 @@ const ChatView: React.FC<ChatViewProps> = ({ projectId, threadId, onThreadChange
       {/* Input Bar */}
       <div className={styles.inputWrapper}>
         <ChatInputBar
+          projectId={projectId}
           onSend={handleSend}
-          onTyping={() => wsSendMessage({ type: MessageType.TYPING_INDICATOR, thread_id: activeThreadId, is_typing: true })}
+          onTyping={() =>
+            wsSendMessage({
+              type: MessageType.TYPING_INDICATOR,
+              thread_id: activeThreadId,
+              is_typing: true,
+            })
+          }
           isDisabled={wsStatus !== WebSocketStatus.CONNECTED}
         />
       </div>

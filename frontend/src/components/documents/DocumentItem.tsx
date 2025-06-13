@@ -1,7 +1,6 @@
 import React from 'react';
 import {
   FileText,
-  FilePdf,
   FileSpreadsheet,
   MoreVertical,
   Clock,
@@ -11,7 +10,8 @@ import {
   History,
   Trash2,
   Download,
-  Edit3
+  Plus,
+  X
 } from 'lucide-react';
 import { Document } from '@/types/document';
 import { useDocumentStore } from '@/stores/documentStore';
@@ -39,7 +39,7 @@ export const DocumentItem: React.FC<DocumentItemProps> = ({
   const currentVersion = document.versions?.find(v => v.id === document.current_version_id);
 
   const getFileIcon = () => {
-    if (document.mime_type.includes('pdf')) return FilePdf;
+    if (document.mime_type.includes('pdf')) return FileText;
     if (document.mime_type.includes('spreadsheet') || document.mime_type.includes('csv')) return FileSpreadsheet;
     return FileText;
   };

@@ -16,12 +16,14 @@ from __future__ import annotations
 
 from typing import List, Optional
 
+from sqlalchemy import select, desc, asc  # new imports
+
 from fastapi import APIRouter, Depends, HTTPException, status, Query, WebSocket
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..dependencies.auth import (
     get_current_user,
-    get_db,
+    get_async_db,
     get_chat_service,
     get_connection_manager,
     get_ai_provider,
@@ -54,21 +56,34 @@ router = APIRouter(prefix="/threads", tags=["chat"])
 
 
 @router.get("", response_model=ThreadListResponse)
-def list_threads(  # noqa: D401 – simple CRUD wrapper
+async def list_threads(  # noqa: D401 – simple CRUD wrapper
     project_id: Optional[str] = Query(None),
     include_archived: bool = Query(False),
-    db: Session = Depends(get_db),
+    chat_service: ChatService = Depends(get_chat_service),
     current_user=Depends(get_current_user),
 ):
-    """Return threads (optionally filtered by project) owned by *current_user*."""
+    """Return threads owned by *current_user* (optionally filtered)."""
 
-    query = db.query(ChatThread).filter(ChatThread.user_id == current_user.id)
-    if project_id:
-        query = query.filter(ChatThread.project_id == project_id)
-    if not include_archived:
-        query = query.filter(ChatThread.is_archived.is_(False))
+    if project_id is None:
+        # All threads (optionally include archived) ----------------------
+        stmt = (
+            select(ChatThread)
+            .where(ChatThread.user_id == current_user.id)
+        )
+        if not include_archived:
+            stmt = stmt.where(ChatThread.is_archived.is_(False))
 
-    threads: List[ChatThread] = query.order_by(ChatThread.last_activity_at.desc()).all()
+        stmt = stmt.order_by(ChatThread.last_activity_at.desc())
+        db: AsyncSession = chat_service.db  # grab session
+        threads = (await db.scalars(stmt)).all()
+    else:
+        threads = await chat_service.get_project_threads(
+            project_id=project_id,
+            user_id=str(current_user.id),
+            include_archived=include_archived,
+            limit=1000,
+            offset=0,
+        )
 
     return ThreadListResponse(
         threads=[ThreadResponse.model_validate(t) for t in threads],
@@ -104,7 +119,7 @@ async def update_thread(
     """Rename or (un)archive a thread."""
 
     # Fetch & verify thread ownership.
-    thread = chat_service.get_thread(thread_id, user_id=str(current_user.id))
+    thread = await chat_service.get_thread(thread_id, user_id=str(current_user.id))
     if thread is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Thread not found")
 
@@ -140,7 +155,7 @@ async def delete_thread(
 
 
 @router.get("/{thread_id}/messages", response_model=MessageListResponse)
-def list_messages(
+async def list_messages(
     thread_id: str,
     limit: int = Query(50, ge=1, le=200),
     include_deleted: bool = Query(False),
@@ -149,11 +164,11 @@ def list_messages(
 ):
     """Return messages for a thread (chronological)."""
 
-    thread = chat_service.get_thread(thread_id, str(current_user.id))
+    thread = await chat_service.get_thread(thread_id, str(current_user.id))
     if thread is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Thread not found")
 
-    messages = chat_service.get_thread_messages(
+    messages = await chat_service.get_thread_messages(
         thread_id, limit=limit, include_deleted=include_deleted
     )
 
@@ -170,7 +185,7 @@ async def create_message(
     chat_service: ChatService = Depends(get_chat_service),
     current_user=Depends(get_current_user),
 ):
-    thread = chat_service.get_thread(thread_id, str(current_user.id))
+    thread = await chat_service.get_thread(thread_id, str(current_user.id))
     if thread is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Thread not found")
 

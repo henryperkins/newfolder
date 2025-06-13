@@ -63,7 +63,9 @@ class FileProcessorService:
 
             for i, chunk_text in enumerate(chunks):
                 # Generate embedding
-                embedding = self.embedder.encode(chunk_text)
+                from backend.app.utils.concurrency import run_in_thread
+
+                embedding = await run_in_thread(self.embedder.encode, chunk_text)
                 embeddings.append(embedding)
 
                 # Prepare metadata
@@ -100,7 +102,9 @@ class FileProcessorService:
 
     async def _extract_pdf_text(self, file_content: bytes) -> Tuple[str, int]:
         """Extract text from PDF file"""
-        try:
+        from backend.app.utils.concurrency import run_in_thread
+
+        def _extract() -> Tuple[str, int]:  # heavy synchronous helper
             pdf_stream = io.BytesIO(file_content)
             pdf_document = fitz.open(stream=pdf_stream, filetype="pdf")
 
@@ -114,13 +118,17 @@ class FileProcessorService:
 
             return text_content.strip(), page_count
 
+        try:
+            return await run_in_thread(_extract)
         except Exception as e:
             logger.error(f"Error extracting PDF text: {e}")
             raise
 
     async def _extract_docx_text(self, file_content: bytes) -> Tuple[str, int]:
         """Extract text from DOCX file"""
-        try:
+        from backend.app.utils.concurrency import run_in_thread
+
+        def _extract() -> Tuple[str, int]:
             docx_stream = io.BytesIO(file_content)
             doc = DocxDocument(docx_stream)
 
@@ -134,6 +142,8 @@ class FileProcessorService:
 
             return text_content.strip(), page_count
 
+        try:
+            return await run_in_thread(_extract)
         except Exception as e:
             logger.error(f"Error extracting DOCX text: {e}")
             raise

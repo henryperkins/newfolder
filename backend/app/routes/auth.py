@@ -19,7 +19,9 @@ router = APIRouter(prefix="/auth", tags=["authentication"])
 @router.get("/registration-available", response_model=RegistrationAvailableResponse)
 async def check_registration_available(db: Session = Depends(get_db)):
     """Check if registration is open (no users exist)"""
-    user_count = db.query(User).count()
+    from backend.app.utils.concurrency import run_in_thread
+
+    user_count = await run_in_thread(lambda: db.query(User).count())
     if user_count > 0:
         return RegistrationAvailableResponse(
             available=False, 
@@ -35,8 +37,10 @@ async def register(
     security_service: SecurityService = Depends(get_security_service)
 ):
     """Create the first and only user account"""
+    from backend.app.utils.concurrency import run_in_thread
+
     # Check if registration is allowed
-    user_count = db.query(User).count()
+    user_count = await run_in_thread(lambda: db.query(User).count())
     if user_count > 0:
         raise HTTPException(
             status_code=403,
@@ -44,11 +48,11 @@ async def register(
         )
     
     # Check if email already exists
-    if db.query(User).filter(User.email == user_data.email).first():
+    if await run_in_thread(lambda: db.query(User).filter(User.email == user_data.email).first()):
         raise HTTPException(status_code=400, detail="Email already registered")
     
     # Check if username already exists
-    if db.query(User).filter(User.username == user_data.username).first():
+    if await run_in_thread(lambda: db.query(User).filter(User.username == user_data.username).first()):
         raise HTTPException(status_code=400, detail="Username already taken")
     
     # Create user
@@ -60,8 +64,8 @@ async def register(
     )
     
     db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
+    await run_in_thread(db.commit)
+    await run_in_thread(lambda: db.refresh(db_user))
     
     return db_user
 
@@ -74,7 +78,9 @@ async def login(
     security_service: SecurityService = Depends(get_security_service)
 ):
     """Authenticate user and create session"""
-    user = db.query(User).filter(User.email == login_data.email).first()
+    from backend.app.utils.concurrency import run_in_thread
+
+    user = await run_in_thread(lambda: db.query(User).filter(User.email == login_data.email).first())
     
     if not user or not security_service.verify_password(login_data.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid email or password")
@@ -88,7 +94,7 @@ async def login(
     
     # Update last login
     user.last_login_at = datetime.utcnow()
-    db.commit()
+    await run_in_thread(db.commit)
     
     # Set httpOnly cookie
     response.set_cookie(
@@ -122,7 +128,9 @@ async def forgot_password(
     email_service: EmailService = Depends(get_email_service)
 ):
     """Initiate password reset flow"""
-    user = db.query(User).filter(User.email == request_data.email).first()
+    from backend.app.utils.concurrency import run_in_thread
+
+    user = await run_in_thread(lambda: db.query(User).filter(User.email == request_data.email).first())
     
     if user:
         # Create reset token
@@ -135,7 +143,7 @@ async def forgot_password(
             expires_at=datetime.utcnow() + timedelta(hours=1)
         )
         db.add(db_token)
-        db.commit()
+        await run_in_thread(db.commit)
         
         # Send email in background
         background_tasks.add_task(
@@ -170,16 +178,20 @@ async def reset_password(
         raise HTTPException(status_code=400, detail="Invalid or expired reset token")
     
     # Find user and token
-    user = db.query(User).filter(User.email == email).first()
+    from backend.app.utils.concurrency import run_in_thread
+
+    user = await run_in_thread(lambda: db.query(User).filter(User.email == email).first())
     if not user:
         raise HTTPException(status_code=400, detail="Invalid or expired reset token")
     
-    token_record = db.query(PasswordResetToken).filter(
-        PasswordResetToken.token == request_data.token,
-        PasswordResetToken.user_id == user.id,
-        PasswordResetToken.used == False,
-        PasswordResetToken.expires_at > datetime.utcnow()
-    ).first()
+    token_record = await run_in_thread(
+        lambda: db.query(PasswordResetToken).filter(
+            PasswordResetToken.token == request_data.token,
+            PasswordResetToken.user_id == user.id,
+            PasswordResetToken.used == False,
+            PasswordResetToken.expires_at > datetime.utcnow(),
+        ).first()
+    )
     
     if not token_record:
         raise HTTPException(status_code=400, detail="Invalid or expired reset token")
@@ -188,6 +200,6 @@ async def reset_password(
     user.hashed_password = security_service.hash_password(request_data.new_password)
     token_record.used = True
     
-    db.commit()
+    await run_in_thread(db.commit)
     
     return MessageResponse(message="Password successfully reset")

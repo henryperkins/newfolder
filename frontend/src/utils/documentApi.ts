@@ -50,50 +50,50 @@ export const documentApi = {
   },
 
   async updateDocument(
+    projectId: string,
     documentId: string,
     updates: { name?: string; tags?: string[] }
   ): Promise<Document> {
-    // Get project ID from document
-    const doc = await this.getDocumentInfo(documentId);
     const response = await api.patch(
-      `/projects/${doc.project_id}/documents/${documentId}`,
-      updates
+      `/projects/${projectId}/documents/${documentId}`,
+      updates,
     );
     return response.data;
   },
 
-  async deleteDocument(documentId: string): Promise<void> {
-    // Get project ID from document
-    const doc = await this.getDocumentInfo(documentId);
-    await api.delete(`/projects/${doc.project_id}/documents/${documentId}`);
+  async deleteDocument(projectId: string, documentId: string): Promise<void> {
+    await api.delete(`/projects/${projectId}/documents/${documentId}`);
   },
 
-  async getDocumentVersions(documentId: string): Promise<DocumentVersion[]> {
-    // Get project ID from document
-    const doc = await this.getDocumentInfo(documentId);
+  async getDocumentVersions(
+    projectId: string,
+    documentId: string,
+  ): Promise<DocumentVersion[]> {
     const response = await api.get(
-      `/projects/${doc.project_id}/documents/${documentId}/versions`
+      `/projects/${projectId}/documents/${documentId}/versions`,
     );
     return response.data;
   },
 
   async revertDocumentVersion(
+    projectId: string,
     documentId: string,
-    targetVersionId: string
+    targetVersionId: string,
   ): Promise<{ document_id: string; new_version_id: string; message: string }> {
-    // Get project ID from document
-    const doc = await this.getDocumentInfo(documentId);
     const response = await api.post(
-      `/projects/${doc.project_id}/documents/${documentId}/revert`,
-      { target_version_id: targetVersionId }
+      `/projects/${projectId}/documents/${documentId}/revert`,
+      { target_version_id: targetVersionId },
     );
     return response.data;
   },
 
-  // Helper to get document info (including project ID)
+  // Deprecated helper kept for backward compatibility – will be removed once
+  // all call sites pass the projectId explicitly.
   async getDocumentInfo(documentId: string): Promise<{ project_id: string }> {
-    // This would be cached in a real app
-    const response = await api.get(`/documents/${documentId}/info`);
+    console.warn(
+      'documentApi.getDocumentInfo() is deprecated – supply projectId instead',
+    );
+    const response = await api.get(`/documents/${documentId}`);
     return response.data;
-  }
+  },
 };

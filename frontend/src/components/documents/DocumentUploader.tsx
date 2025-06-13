@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Upload, X, File, AlertCircle } from 'lucide-react';
+import { Upload, X, File as FileIcon } from 'lucide-react';
 import { useDocumentStore } from '@/stores/documentStore';
 import { Button } from '@/components/common';
 import { cn, formatFileSize } from '@/utils';
@@ -121,7 +121,7 @@ export const DocumentUploader: React.FC<DocumentUploaderProps> = ({
               )}
             >
               <div className="flex items-center gap-3">
-                <File className="w-5 h-5 text-gray-500" />
+                <FileIcon className="w-5 h-5 text-gray-500" />
                 <div>
                   <p className="font-medium text-gray-900">{file.name}</p>
                   <p className="text-sm text-gray-500">{formatFileSize(file.size)}</p>

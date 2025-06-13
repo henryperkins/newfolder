@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Upload, FileText, AlertCircle } from 'lucide-react';
+import { Document } from '@/types/document';
 import { useDocumentStore } from '@/stores/documentStore';
 import { Card, Button } from '@/components/common';
 import { DocumentUploader } from './DocumentUploader';

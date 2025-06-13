@@ -1,7 +1,14 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AppLayout, LoginPage, RegistrationPage, ResetPasswordPage, ProtectedRoute } from '@/components';
-import { DashboardPage, SettingsPage, ProjectsPage, ChatsPage, ComponentsShowcasePage } from '@/pages';
+import {
+  DashboardPage,
+  SettingsPage,
+  ProjectsPage,
+  ProjectPage,
+  ChatsPage,
+  ComponentsShowcasePage,
+} from '@/pages';
 import { ToastProvider } from '@/components/ui';
 
 function App() {
@@ -41,6 +48,17 @@ function App() {
             <ProtectedRoute>
               <AppLayout>
                 <ProjectsPage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/projects/:projectId"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <ProjectPage />
               </AppLayout>
             </ProtectedRoute>
           }

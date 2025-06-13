@@ -29,8 +29,10 @@ class RAGService:
     ) -> str:
         """Generate a context-enhanced prompt with relevant document chunks"""
         try:
-            # Generate query embedding
-            query_embedding = self.embedder.encode(query)
+            # Generate query embedding off-thread (SentenceTransformer is blocking)
+            from backend.app.utils.concurrency import run_in_thread
+
+            query_embedding = await run_in_thread(self.embedder.encode, query)
 
             # Search for relevant chunks in the project
             filters = {"project_id": project_id}
@@ -122,8 +124,9 @@ Please provide a comprehensive answer based on the context above. If you referen
     ) -> List[Dict[str, Any]]:
         """Get relevant document sources for a query"""
         try:
-            # Generate query embedding
-            query_embedding = self.embedder.encode(query)
+            from backend.app.utils.concurrency import run_in_thread
+
+            query_embedding = await run_in_thread(self.embedder.encode, query)
 
             # Search for relevant chunks
             filters = {"project_id": project_id}

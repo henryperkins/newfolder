@@ -6,7 +6,15 @@ import uuid
 
 from ..core.database import get_db
 from ..dependencies.auth import get_current_user
-from ..models import User, Project, Tag, ProjectTag, ActivityLog
+from ..models import (
+    User,
+    Project,
+    Tag,
+    ProjectTag,
+    ActivityLog,
+    ChatThread,
+    Document,
+)
 from ..models.activity import ActivityType
 from ..core.schemas import (
     ProjectCreate, ProjectUpdate, ProjectResponse, ProjectListResponse,
@@ -59,8 +67,11 @@ async def list_projects(
     # Add stats to each project
     project_responses = []
     for project in projects:
-        # TODO: Calculate actual stats when chat/document models exist
-        stats = ProjectStats(chat_count=0, document_count=0)
+        # Calculate basic stats
+        chat_count = db.query(ChatThread).filter(ChatThread.project_id == project.id).count()
+        document_count = db.query(Document).filter(Document.project_id == project.id).count()
+
+        stats = ProjectStats(chat_count=chat_count, document_count=document_count)
         
         project_response = ProjectResponse(
             id=project.id,
@@ -168,6 +179,10 @@ async def create_project(
         Project.id == project.id
     ).first()
 
+    # Compute stats
+    chat_count = db.query(ChatThread).filter(ChatThread.project_id == project.id).count()
+    document_count = db.query(Document).filter(Document.project_id == project.id).count()
+
     return ProjectResponse(
         id=project.id,
         name=project.name,
@@ -185,7 +200,7 @@ async def create_project(
         created_at=project.created_at,
         updated_at=project.updated_at,
         last_activity_at=project.last_activity_at,
-        stats=ProjectStats(chat_count=0, document_count=0)
+        stats=ProjectStats(chat_count=chat_count, document_count=document_count)
     )
 
 

@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { X, Clock, User, FileText, RotateCcw } from 'lucide-react';
+import { X, Clock, FileText, RotateCcw } from 'lucide-react';
 import { useDocumentStore } from '@/stores/documentStore';
 import { DocumentVersion } from '@/types/document';
 import { Button, Card } from '@/components/common';
-import { formatFileSize, formatRelativeTime } from '@/utils';
+import { formatFileSize, formatRelativeTime, cn } from '@/utils';
 
 interface VersionHistoryProps {
   documentId: string;

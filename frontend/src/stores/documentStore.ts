@@ -6,7 +6,7 @@ import {
   DocumentUploadProgress,
   DocumentNotification
 } from '@/types/document';
-import { documentApi } from '@/utils/api';
+import { documentApi } from '@/utils/documentApi';
 
 interface DocumentState {
   // Documents
@@ -30,7 +30,11 @@ interface DocumentState {
 interface DocumentActions {
   // Document operations
   fetchDocuments: (projectId: string) => Promise<void>;
-  uploadDocument: (projectId: string, file: File, onProgress?: (percent: number) => void) => Promise<Document>;
+  uploadDocument: (
+    projectId: string,
+    file: File,
+    onProgress?: (percent: number) => void,
+  ) => Promise<{ document_id: string; status: string; message: string }>;
   updateDocument: (documentId: string, updates: { name?: string; tags?: string[] }) => Promise<void>;
   deleteDocument: (documentId: string) => Promise<void>;
 
@@ -82,7 +86,7 @@ export const useDocumentStore = create<DocumentStore>()(
           const docs = new Map<string, Document>();
           const docIds: string[] = [];
 
-          response.documents.forEach(doc => {
+          response.documents.forEach((doc: Document) => {
             docs.set(doc.id, doc);
             docIds.push(doc.id);
           });
@@ -111,14 +115,14 @@ export const useDocumentStore = create<DocumentStore>()(
         }));
 
         try {
-          const document = await documentApi.uploadDocument(projectId, file, (percent) => {
+          const uploadResult = await documentApi.uploadDocument(projectId, file, (percent: number) => {
             get().updateUploadProgress(tempId, { progress: percent });
             onProgress?.(percent);
           });
 
           // Update progress to processing
           get().updateUploadProgress(tempId, {
-            documentId: document.document_id,
+            documentId: uploadResult.document_id,
             status: 'processing',
             progress: 100
           });
@@ -126,7 +130,7 @@ export const useDocumentStore = create<DocumentStore>()(
           // Add notification
           get().addNotification({
             type: 'info',
-            documentId: document.document_id,
+            documentId: uploadResult.document_id,
             documentName: file.name,
             message: 'Document is being processed and indexed...'
           });
@@ -134,7 +138,7 @@ export const useDocumentStore = create<DocumentStore>()(
           // Fetch updated document list
           await get().fetchDocuments(projectId);
 
-          return document;
+          return uploadResult;
         } catch (error) {
           get().updateUploadProgress(tempId, {
             status: 'error',
@@ -145,24 +149,36 @@ export const useDocumentStore = create<DocumentStore>()(
       },
 
       updateDocument: async (documentId: string, updates) => {
+        const stateSnapshot = get();
+        const doc = stateSnapshot.documents.get(documentId);
+        if (!doc) {
+          return;
+        }
+
         try {
-          await documentApi.updateDocument(documentId, updates);
-          set(state => {
-            const doc = state.documents.get(documentId);
-            if (doc) {
-              state.documents.set(documentId, { ...doc, ...updates });
+          await documentApi.updateDocument(doc.project_id, documentId, updates);
+          set((state) => {
+            const current = state.documents.get(documentId);
+            if (current) {
+              state.documents.set(documentId, { ...current, ...updates });
             }
             return { documents: new Map(state.documents) };
           });
         } catch (error) {
-          set({ error: error instanceof Error ? error.message : 'Failed to update document' });
+          set({
+            error:
+              error instanceof Error ? error.message : 'Failed to update document',
+          });
           throw error;
         }
       },
 
       deleteDocument: async (documentId: string) => {
+        const doc = get().documents.get(documentId);
+        if (!doc) return;
+
         try {
-          await documentApi.deleteDocument(documentId);
+          await documentApi.deleteDocument(doc.project_id, documentId);
           set(state => {
             state.documents.delete(documentId);
             // Remove from project mapping
@@ -183,24 +199,33 @@ export const useDocumentStore = create<DocumentStore>()(
 
       // Version operations
       fetchVersions: async (documentId: string) => {
+        const doc = get().documents.get(documentId);
+        if (!doc) throw new Error('Document not found');
+
         try {
-          return await documentApi.getDocumentVersions(documentId);
+          return await documentApi.getDocumentVersions(doc.project_id, documentId);
         } catch (error) {
-          set({ error: error instanceof Error ? error.message : 'Failed to fetch versions' });
+          set({
+            error:
+              error instanceof Error ? error.message : 'Failed to fetch versions',
+          });
           throw error;
         }
       },
 
       revertToVersion: async (documentId: string, versionId: string) => {
+        const doc = get().documents.get(documentId);
+        if (!doc) throw new Error('Document not found');
+
         try {
-          await documentApi.revertDocumentVersion(documentId, versionId);
-          // Refresh document
-          const doc = get().documents.get(documentId);
-          if (doc) {
-            await get().fetchDocuments(doc.project_id);
-          }
+          await documentApi.revertDocumentVersion(doc.project_id, documentId, versionId);
+          // Refresh document list for that project
+          await get().fetchDocuments(doc.project_id);
         } catch (error) {
-          set({ error: error instanceof Error ? error.message : 'Failed to revert version' });
+          set({
+            error:
+              error instanceof Error ? error.message : 'Failed to revert version',
+          });
           throw error;
         }
       },

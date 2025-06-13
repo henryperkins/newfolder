@@ -47,11 +47,16 @@ class VectorDBService:
             # Extract texts from metadata for ChromaDB
             documents = [meta.get("text", "") for meta in metadata_list]
 
-            self.collection.add(
+            # Off-load potentially blocking ChromaDB call so that the event
+            # loop remains free for other connections.
+            from backend.app.utils.concurrency import run_in_thread  # local import to avoid cyclic at start-up
+
+            await run_in_thread(
+                self.collection.add,
                 embeddings=embedding_lists,
                 documents=documents,
                 metadatas=metadata_list,
-                ids=ids
+                ids=ids,
             )
 
             logger.info(f"Added {len(embeddings)} embeddings to ChromaDB")
@@ -71,10 +76,13 @@ class VectorDBService:
         try:
             query_list = query_embedding.tolist()
 
-            results = self.collection.query(
+            from backend.app.utils.concurrency import run_in_thread
+
+            results = await run_in_thread(
+                self.collection.query,
                 query_embeddings=[query_list],
                 n_results=top_k,
-                where=filters
+                where=filters,
             )
 
             # Format results
@@ -109,7 +117,9 @@ class VectorDBService:
             # Get IDs to delete
             results = self.collection.get(where=where_clause)
             if results['ids']:
-                self.collection.delete(ids=results['ids'])
+                from backend.app.utils.concurrency import run_in_thread
+
+                await run_in_thread(self.collection.delete, ids=results['ids'])
                 logger.info(f"Deleted {len(results['ids'])} chunks for document {document_id}")
 
             return True
@@ -126,7 +136,9 @@ class VectorDBService:
         """Update metadata for a specific chunk"""
         try:
             # Get existing chunk
-            result = self.collection.get(ids=[chunk_id])
+            from backend.app.utils.concurrency import run_in_thread
+
+            result = await run_in_thread(self.collection.get, ids=[chunk_id])
             if not result['ids']:
                 return False
 
@@ -135,9 +147,10 @@ class VectorDBService:
             existing_metadata.update(metadata_update)
 
             # Update in collection
-            self.collection.update(
+            await run_in_thread(
+                self.collection.update,
                 ids=[chunk_id],
-                metadatas=[existing_metadata]
+                metadatas=[existing_metadata],
             )
 
             return True
@@ -149,7 +162,9 @@ class VectorDBService:
     async def get_collection_stats(self) -> Dict[str, Any]:
         """Get statistics about the collection"""
         try:
-            count = self.collection.count()
+            from backend.app.utils.concurrency import run_in_thread
+
+            count = await run_in_thread(self.collection.count)
             return {
                 "total_chunks": count,
                 "collection_name": self.collection_name
