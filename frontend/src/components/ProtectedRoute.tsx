@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores';
 import { authApi } from '@/utils';
@@ -9,17 +9,17 @@ interface ProtectedRouteProps {
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
-  const [hasChecked, setHasChecked] = useState(false);
+  const hasCheckedRef = useRef(false);
   const { isAuthenticated, setUser, user } = useAuthStore();
   const location = useLocation();
 
   useEffect(() => {
     const checkAuth = async () => {
-      if (hasChecked) return;
+      if (hasCheckedRef.current) return;
+      hasCheckedRef.current = true;
       
       if (isAuthenticated && user) {
         setIsLoading(false);
-        setHasChecked(true);
         return;
       }
 
@@ -30,12 +30,11 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
         setUser(null);
       } finally {
         setIsLoading(false);
-        setHasChecked(true);
       }
     };
 
     checkAuth();
-  }, [isAuthenticated, user, setUser, hasChecked]);
+  }, []);
 
   if (isLoading) {
     return (

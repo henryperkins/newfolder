@@ -58,7 +58,7 @@ export const EmptyDashboard: React.FC<EmptyDashboardProps> = ({
 
   useEffect(() => {
     fetchTemplates();
-  }, [fetchTemplates]);
+  }, []);
 
   const handleChatSubmit = (e: React.FormEvent) => {
     e.preventDefault();
