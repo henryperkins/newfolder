@@ -5,8 +5,8 @@ from .templates import router as templates_router
 from .tags import router as tags_router
 from .activities import router as activities_router
 # Temporarily disable vector-dependent routes
-# from .documents import router as documents_router
-# from .search import router as search_router
+from .documents import router as documents_router
+from .search import router as search_router
 
 __all__ = [
     "auth_router",
@@ -15,6 +15,6 @@ __all__ = [
     "templates_router",
     "tags_router",
     "activities_router",
-    # "documents_router",
-    # "search_router",
+    "documents_router",
+    "search_router",
 ]
