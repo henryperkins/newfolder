@@ -37,7 +37,6 @@ function renderMarkdown(src: string): string {
 export const Markdown: React.FC<MarkdownProps> = ({ content, className }) => (
   <div
     className={className}
-    // eslint-disable-next-line react/no-danger
     dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}
   />
 );

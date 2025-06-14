@@ -106,7 +106,7 @@ export const useWebSocket = ({
   const handleIncomingMessage = useCallback((msg: unknown) => {
     // Consider defining a more specific type for msg if its structure is known
     if (typeof msg === 'object' && msg !== null && 'type' in msg) {
-      const message = msg as { type: string; [key: string]: any };
+      const message = msg as { type: string; [key: string]: unknown };
       switch (message.type) {
         case 'new_message':
           store.streamMessage(message.message as ChatMessage);
@@ -115,13 +115,21 @@ export const useWebSocket = ({
           // placeholder assistant message already created in ChatService – nothing to do
           break;
         case 'stream_chunk':
-          store.addStreamChunk(message.message_id, message.chunk, message.is_final);
+          store.addStreamChunk(message.message_id as string, message.chunk, message.is_final);
           break;
         case 'message_updated':
-          store.editMessage(message.message.id, message.message.content).catch(() => {});
+          if (
+            message.message && typeof message.message === 'object' &&
+            'id' in message.message && 'content' in message.message
+          ) {
+            store.editMessage(
+              (message.message as { id: string }).id,
+              (message.message as { content: string }).content
+            ).catch(() => {});
+          }
           break;
         case 'message_deleted':
-          store.deleteMessage(message.message_id).catch(() => {});
+          store.deleteMessage(message.message_id as string).catch(() => {});
           break;
         default:
           // ignore

@@ -68,13 +68,19 @@ export const SettingsPage: React.FC = () => {
       setProfileSuccess(true);
       setTimeout(() => setProfileSuccess(false), 3000);
     } catch (err: unknown) {
-      const message = err instanceof Error && 'response' in err &&
-        typeof (err as any).response === 'object' && (err as any).response &&
-        'data' in (err as any).response &&
-        typeof (err as any).response.data === 'object' && (err as any).response.data &&
-        'detail' in (err as any).response.data
-        ? String((err as any).response.data.detail)
-        : 'Failed to update profile. Please try again.';
+      const maybeResp = (err as { response?: unknown })?.response;
+      const maybeData =
+        maybeResp && typeof maybeResp === "object" && "data" in maybeResp
+          ? (maybeResp as { data?: unknown }).data
+          : undefined;
+      const detail =
+        maybeData && typeof maybeData === "object" && "detail" in maybeData
+          ? (maybeData as { detail?: unknown }).detail
+          : undefined;
+      const message =
+        typeof detail === "string"
+          ? detail
+          : "Failed to update profile. Please try again.";
       setProfileError(message);
     } finally {
       setIsUpdatingProfile(false);
@@ -95,13 +101,19 @@ export const SettingsPage: React.FC = () => {
       passwordForm.reset();
       setTimeout(() => setPasswordSuccess(false), 3000);
     } catch (err: unknown) {
-      const message = err instanceof Error && 'response' in err &&
-        typeof (err as any).response === 'object' && (err as any).response &&
-        'data' in (err as any).response &&
-        typeof (err as any).response.data === 'object' && (err as any).response.data &&
-        'detail' in (err as any).response.data
-        ? String((err as any).response.data.detail)
-        : 'Failed to change password. Please try again.';
+      const maybeResp = (err as { response?: unknown })?.response;
+      const maybeData =
+        maybeResp && typeof maybeResp === "object" && "data" in maybeResp
+          ? (maybeResp as { data?: unknown }).data
+          : undefined;
+      const detail =
+        maybeData && typeof maybeData === "object" && "detail" in maybeData
+          ? (maybeData as { detail?: unknown }).detail
+          : undefined;
+      const message =
+        typeof detail === "string"
+          ? detail
+          : "Failed to change password. Please try again.";
       setPasswordError(message);
     } finally {
       setIsChangingPassword(false);
@@ -153,7 +165,7 @@ export const SettingsPage: React.FC = () => {
               <div className="space-y-6">
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900">Profile Information</h2>
-                  <p className="text-gray-600">Update your account's profile information.</p>
+                  <p className="text-gray-600">Update your account&apos;s profile information.</p>
                 </div>
 
                 <form onSubmit={profileForm.handleSubmit(onUpdateProfile)} className="space-y-4">
