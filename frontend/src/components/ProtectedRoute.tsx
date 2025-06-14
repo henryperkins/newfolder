@@ -9,13 +9,17 @@ interface ProtectedRouteProps {
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
+  const [hasChecked, setHasChecked] = useState(false);
   const { isAuthenticated, setUser, user } = useAuthStore();
   const location = useLocation();
 
   useEffect(() => {
     const checkAuth = async () => {
+      if (hasChecked) return;
+      
       if (isAuthenticated && user) {
         setIsLoading(false);
+        setHasChecked(true);
         return;
       }
 
@@ -26,11 +30,12 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
         setUser(null);
       } finally {
         setIsLoading(false);
+        setHasChecked(true);
       }
     };
 
     checkAuth();
-  }, [isAuthenticated, user, setUser]);
+  }, [isAuthenticated, user, setUser, hasChecked]);
 
   if (isLoading) {
     return (

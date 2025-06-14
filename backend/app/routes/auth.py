@@ -18,15 +18,7 @@ router = APIRouter(prefix="/auth", tags=["authentication"])
 
 @router.get("/registration-available", response_model=RegistrationAvailableResponse)
 async def check_registration_available(db: Session = Depends(get_db)):
-    """Check if registration is open (no users exist)"""
-    from backend.app.utils.concurrency import run_in_thread
-
-    user_count = await run_in_thread(lambda: db.query(User).count())
-    if user_count > 0:
-        return RegistrationAvailableResponse(
-            available=False, 
-            message="Registration closed"
-        )
+    """Check if registration is open (always available)"""
     return RegistrationAvailableResponse(available=True)
 
 
@@ -36,16 +28,8 @@ async def register(
     db: Session = Depends(get_db),
     security_service: SecurityService = Depends(get_security_service)
 ):
-    """Create the first and only user account"""
-    from backend.app.utils.concurrency import run_in_thread
-
-    # Check if registration is allowed
-    user_count = await run_in_thread(lambda: db.query(User).count())
-    if user_count > 0:
-        raise HTTPException(
-            status_code=403,
-            detail="Registration is closed. This instance already has a user."
-        )
+    """Create a new user account"""
+    from ..utils.concurrency import run_in_thread
     
     # Check if email already exists
     if await run_in_thread(lambda: db.query(User).filter(User.email == user_data.email).first()):
@@ -78,7 +62,7 @@ async def login(
     security_service: SecurityService = Depends(get_security_service)
 ):
     """Authenticate user and create session"""
-    from backend.app.utils.concurrency import run_in_thread
+    from ..utils.concurrency import run_in_thread
 
     user = await run_in_thread(lambda: db.query(User).filter(User.email == login_data.email).first())
     
@@ -108,6 +92,7 @@ async def login(
     
     return LoginResponse(
         access_token=access_token,
+        token_type="bearer",
         user=UserResponse.model_validate(user)
     )
 
@@ -128,7 +113,7 @@ async def forgot_password(
     email_service: EmailService = Depends(get_email_service)
 ):
     """Initiate password reset flow"""
-    from backend.app.utils.concurrency import run_in_thread
+    from ..utils.concurrency import run_in_thread
 
     user = await run_in_thread(lambda: db.query(User).filter(User.email == request_data.email).first())
     
@@ -178,7 +163,7 @@ async def reset_password(
         raise HTTPException(status_code=400, detail="Invalid or expired reset token")
     
     # Find user and token
-    from backend.app.utils.concurrency import run_in_thread
+    from ..utils.concurrency import run_in_thread
 
     user = await run_in_thread(lambda: db.query(User).filter(User.email == email).first())
     if not user:

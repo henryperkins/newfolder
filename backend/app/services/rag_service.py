@@ -56,7 +56,7 @@ class RAGService:
         if not self.reranker or not chunks:
             return chunks
         
-        from backend.app.utils.concurrency import run_in_thread
+        from ..utils.concurrency import run_in_thread
 
         pairs = [(query, chunk.get('text', '')) for chunk in chunks]
         try:

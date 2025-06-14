@@ -22,7 +22,7 @@ class SecurityService:
         """Create JWT token with expiration"""
         to_encode = data.copy()
         expire = datetime.utcnow() + (expires_delta or timedelta(hours=24))
-        to_encode.update({"exp": expire})
+        to_encode.update({"exp": expire.timestamp()})
         return jwt.encode(to_encode, self.secret_key, algorithm=self.algorithm)
 
     def decode_token(self, token: str) -> dict:

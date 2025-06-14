@@ -112,18 +112,17 @@ async def get_document_service(
 
 
 def _lazy_import_vector_service():
-    # from backend.app.services.vector_db_service import VectorDBService
-    # return VectorDBService()
-    return None
+    from ..services.vector_db_service import VectorDBService
+    return VectorDBService()
 
 
 def _lazy_import_file_processor():
-    from backend.app.services.file_processor_service import FileProcessorService
+    from ..services.file_processor_service import FileProcessorService
     return FileProcessorService()
 
 
 def _lazy_import_rag_service(vector_db, ai_provider):
-    from backend.app.services.rag_service import RAGService
+    from ..services.rag_service import RAGService
     return RAGService(vector_db, ai_provider)
 
 
@@ -198,10 +197,10 @@ async def get_websocket_user(
 
 
 try:
-    from backend.app.services.vector_db_service import VectorDBService  # noqa: WPS433
-    from backend.app.services.file_processor_service import FileProcessorService  # noqa: WPS433
-    from backend.app.services.rag_service import RAGService  # noqa: WPS433
-    from backend.app.services.ai_provider import AIProvider  # noqa: WPS433
+    from ..services.vector_db_service import VectorDBService  # noqa: WPS433
+    from ..services.file_processor_service import FileProcessorService  # noqa: WPS433
+    from ..services.rag_service import RAGService  # noqa: WPS433
+    from ..services.ai_provider import AIProvider  # noqa: WPS433
 
 except Exception:  # pragma: no cover – graceful degradation
 
@@ -250,7 +249,7 @@ def get_rag_service(
     if ai_provider is None:
         # Re-use the chat AI provider factory if available; otherwise fallback
         try:
-            from backend.app.dependencies.auth import get_ai_provider  # type: ignore
+            from . import get_ai_provider  # type: ignore
 
             ai_provider = get_ai_provider()  # type: ignore[call-arg]
         except Exception:

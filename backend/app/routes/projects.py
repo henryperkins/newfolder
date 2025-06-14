@@ -55,8 +55,14 @@ async def list_projects(
             )
         )
 
-    # Apply sorting
-    sort_column = getattr(Project, sort_by)
+    # Apply sorting - map frontend sort keys to actual column names
+    sort_mapping = {
+        "created": "created_at",
+        "updated": "updated_at", 
+        "name": "name"
+    }
+    column_name = sort_mapping.get(sort_by, "updated_at")
+    sort_column = getattr(Project, column_name)
     if order == "desc":
         query = query.order_by(desc(sort_column))
     else:

@@ -109,11 +109,11 @@ class SummarizationService:  # noqa: D401 – service container
             msg.is_summarized = True
 
         try:
-            from backend.app.utils.concurrency import run_in_thread
+            from ..utils.concurrency import run_in_thread
 
             await run_in_thread(self.db.commit)
         except Exception:  # pragma: no cover – DB may be mocked
-            from backend.app.utils.concurrency import run_in_thread
+            from ..utils.concurrency import run_in_thread
 
             await run_in_thread(self.db.rollback)
 

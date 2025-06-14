@@ -189,9 +189,6 @@ class ChatMessage(Base):
 
     # Summary bookkeeping.
     is_summarized = Column(Boolean, default=False, nullable=False)
-    summary_id = Column(
-        UUID(as_uuid=True), ForeignKey("chat_summaries.id", ondelete="SET NULL"), nullable=True
-    )  # type: ignore[assignment]
 
     created_at = Column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -206,7 +203,6 @@ class ChatMessage(Base):
     # Relationships -----------------------------------------------------
     thread = relationship("ChatThread", back_populates="messages")
     user = relationship("User", back_populates="chat_messages")
-    summary = relationship("ChatSummary", back_populates="messages")
 
     __table_args__ = (
         CheckConstraint("char_length(content) <= 50000", name="message_content_max_length"),
@@ -252,7 +248,6 @@ class ChatSummary(Base):
 
     # Relationships -----------------------------------------------------
     thread = relationship("ChatThread", back_populates="summaries")
-    messages = relationship("ChatMessage", back_populates="summary")
 
     __table_args__ = (
         Index("idx_chat_summaries_thread", "thread_id"),

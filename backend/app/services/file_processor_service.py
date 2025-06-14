@@ -115,7 +115,7 @@ class FileProcessorService:
 
     async def _extract_pdf_text(self, file_content: bytes) -> Tuple[str, int]:
         """Extract text from PDF file"""
-        from backend.app.utils.concurrency import run_in_thread
+        from ..utils.concurrency import run_in_thread
 
         def _extract() -> Tuple[str, int]:  # heavy synchronous helper
             pdf_stream = io.BytesIO(file_content)
@@ -139,7 +139,7 @@ class FileProcessorService:
 
     async def _extract_docx_text(self, file_content: bytes) -> Tuple[str, int]:
         """Extract text from DOCX file"""
-        from backend.app.utils.concurrency import run_in_thread
+        from ..utils.concurrency import run_in_thread
 
         def _extract() -> Tuple[str, int]:
             docx_stream = io.BytesIO(file_content)
