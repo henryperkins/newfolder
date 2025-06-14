@@ -71,7 +71,7 @@ class TagBase(BaseModel):
 
 
 class TagCreate(TagBase):
-    pass
+    user_id: Optional[uuid.UUID] = None
 
 
 class TagResponse(TagBase):

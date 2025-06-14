@@ -9,7 +9,12 @@ class DocumentVersionBase(BaseModel):
 
 
 class DocumentVersionCreate(DocumentVersionBase):
-    pass
+    document_id: uuid.UUID
+    file_path: str
+    file_hash: str
+    size_bytes: int
+    page_count: Optional[int] = None
+    word_count: Optional[int] = None
 
 
 class DocumentVersionResponse(DocumentVersionBase):

@@ -148,6 +148,26 @@ class ChatService:  # noqa: D401 – service container
         await self.db.commit()
         return True
 
+    async def unarchive_thread(self, thread_id: str, user_id: str) -> bool:
+        """Unarchive a previously archived thread."""
+        stmt = (
+            select(ChatThread)
+            .where(
+                ChatThread.id == thread_id,
+                ChatThread.user_id == user_id,
+                ChatThread.is_archived.is_(True),
+            )
+        )
+        thread = await self.db.scalar(stmt)
+        if thread is None:
+            return False
+
+        thread.is_archived = False
+        thread.archived_at = None
+        thread.updated_at = datetime.utcnow()
+        await self.db.commit()
+        return True
+
     # ------------------------------------------------------------------
     # Message helpers                                                   
     # ------------------------------------------------------------------
@@ -254,3 +274,39 @@ class ChatService:  # noqa: D401 – service container
 
         await self.db.commit()
         return msg
+
+    async def regenerate_response(self, message_id: str, user_id: str) -> Optional[ChatMessage]:
+        """Get the user message that triggered a response for regeneration."""
+        stmt = select(ChatMessage).where(
+            ChatMessage.id == message_id,
+            ChatMessage.user_id == user_id,
+            ChatMessage.is_user.is_(True),
+            ChatMessage.is_deleted.is_(False),
+        )
+        user_msg = await self.db.scalar(stmt)
+        
+        if user_msg is None:
+            return None
+            
+        # Find and soft-delete the subsequent assistant response if it exists
+        next_msg_stmt = select(ChatMessage).where(
+            ChatMessage.thread_id == user_msg.thread_id,
+            ChatMessage.created_at > user_msg.created_at,
+            ChatMessage.is_user.is_(False),
+            ChatMessage.is_deleted.is_(False),
+        ).order_by(asc(ChatMessage.created_at)).limit(1)
+        
+        assistant_msg = await self.db.scalar(next_msg_stmt)
+        if assistant_msg:
+            # Mark old assistant response as deleted
+            assistant_msg.is_deleted = True
+            assistant_msg.deleted_at = datetime.utcnow()
+            
+            # Update thread statistics
+            if assistant_msg.thread:
+                assistant_msg.thread.message_count -= 1
+                assistant_msg.thread.total_tokens -= assistant_msg.token_count
+            
+            await self.db.commit()
+        
+        return user_msg

@@ -116,7 +116,7 @@ export const useWebSocket = ({
 
     // If the caller passes a relative URL we auto-upgrade to ws(s) scheme.
     const scheme = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const fullUrl = url.startsWith('ws://') || url.startsWith('wss://') ? url : `${scheme}://${window.location.host}${url}`;
+    const fullUrl = import.meta.env.VITE_WS_URL || (url.startsWith('ws://') || url.startsWith('wss://') ? url : `${scheme}://${window.location.host}${url}`);
     const wsWithToken = token ? `${fullUrl}?token=${token}` : fullUrl;
 
     const ws = new WebSocket(wsWithToken);

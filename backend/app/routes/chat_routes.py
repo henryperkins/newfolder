@@ -130,8 +130,7 @@ async def update_thread(
         if payload.is_archived:
             await chat_service.archive_thread(thread_id, str(current_user.id))
         else:
-            # Unarchive path not yet implemented; ignore.
-            pass
+            await chat_service.unarchive_thread(thread_id, str(current_user.id))
 
     return ThreadResponse.model_validate(thread)
 
@@ -251,5 +250,9 @@ async def chat_websocket(
         while True:
             data = await websocket.receive_json()
             await handler.handle_message(websocket, data)
-    except Exception:
-        pass  # graceful shutdown handled by manager
+    except Exception as e:
+        # Log the exception for debugging but don't re-raise
+        # The connection manager handles graceful shutdown
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.debug(f"WebSocket connection closed: {e}")

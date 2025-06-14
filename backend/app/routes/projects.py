@@ -90,7 +90,7 @@ async def list_projects(
                 id=tag.id,
                 name=tag.name,
                 color=tag.color,
-                usage_count=0,  # TODO: Calculate usage count
+                usage_count=db.query(ProjectTag).filter(ProjectTag.tag_id == tag.id).count(),
                 created_at=tag.created_at
             ) for tag in project.tags],
             created_at=project.created_at,
@@ -200,7 +200,7 @@ async def create_project(
             id=tag.id,
             name=tag.name,
             color=tag.color,
-            usage_count=0,
+            usage_count=db.query(ProjectTag).filter(ProjectTag.tag_id == tag.id).count(),
             created_at=tag.created_at
         ) for tag in project.tags],
         created_at=project.created_at,
@@ -238,7 +238,7 @@ async def get_project(
             id=tag.id,
             name=tag.name,
             color=tag.color,
-            usage_count=0,
+            usage_count=db.query(ProjectTag).filter(ProjectTag.tag_id == tag.id).count(),
             created_at=tag.created_at
         ) for tag in project.tags],
         created_at=project.created_at,

@@ -6,7 +6,10 @@ from typing import List, Optional
 import uuid
 import os
 import aiofiles
+import logging
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 from ..dependencies.auth import (
     get_current_user,
@@ -490,8 +493,8 @@ async def process_document_async(
                 document.error_message = str(e)
                 db.commit()
                 await _emit_status_update(document, db)
-        except:
-            pass
+        except Exception as e:
+            logger.error(f"Failed to update document status after processing error: {e}")
     finally:
         db.close()
 
@@ -533,6 +536,59 @@ async def reindex_document_version(
     source_version_id: str
 ):
     """Copy embeddings from source version to new version"""
-    # In a real implementation, you might copy the actual embeddings
-    # For now, we'll just update the metadata
-    pass
+    try:
+        from ..core.database import AsyncSessionLocal
+        
+        async with AsyncSessionLocal() as db:
+            # Get source version embeddings metadata
+            source_version = await db.scalar(
+                select(DocumentVersion).where(DocumentVersion.id == source_version_id)
+            )
+            
+            if not source_version:
+                logger.error(f"Source version {source_version_id} not found for reindexing")
+                return
+            
+            # Get new version to update
+            new_version = await db.scalar(
+                select(DocumentVersion).where(DocumentVersion.id == new_version_id)
+            )
+            
+            if not new_version:
+                logger.error(f"New version {new_version_id} not found for reindexing")
+                return
+            
+            # Copy embeddings from vector DB with updated metadata
+            try:
+                # Query existing embeddings for the source version
+                existing_embeddings = await vector_db_service.query_by_metadata({
+                    'document_id': document_id,
+                    'version_id': source_version_id
+                })
+                
+                if existing_embeddings:
+                    # Update metadata for new version
+                    new_metadata_list = []
+                    for embedding_data in existing_embeddings:
+                        new_metadata = embedding_data['metadata'].copy()
+                        new_metadata['version_id'] = new_version_id
+                        new_metadata_list.append(new_metadata)
+                    
+                    # Add embeddings with new metadata
+                    await vector_db_service.add_embeddings(
+                        embeddings=[e['embedding'] for e in existing_embeddings],
+                        metadata_list=new_metadata_list
+                    )
+                    
+                    # Update new version chunk count
+                    new_version.chunk_count = len(existing_embeddings)
+                    new_version.embedding_model = source_version.embedding_model
+                    
+                    await db.commit()
+                    logger.info(f"Successfully reindexed {len(existing_embeddings)} chunks for version {new_version_id}")
+                
+            except Exception as e:
+                logger.error(f"Error copying embeddings for document {document_id}: {e}")
+                
+    except Exception as e:
+        logger.error(f"Error reindexing document version {new_version_id}: {e}")

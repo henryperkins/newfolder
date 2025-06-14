@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     # RAG
     rag_enabled: bool = False
 
+    # Frontend
+    frontend_base_url: str = "http://localhost:3000"
+
     class Config:
         env_file = ".env"
 

@@ -12,6 +12,7 @@ from ..models.password_reset import PasswordResetToken
 from ..services.security import SecurityService
 from ..services.email import EmailService
 from ..dependencies.auth import get_security_service, get_email_service
+from ..core.config import settings
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
@@ -135,7 +136,7 @@ async def forgot_password(
             email_service.send_password_reset_email,
             user.email,
             reset_token,
-            "http://localhost:3000"  # TODO: Use proper base URL from config
+            settings.frontend_base_url
         )
     
     # Always return success to prevent email enumeration
