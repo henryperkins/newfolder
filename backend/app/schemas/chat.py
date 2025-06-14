@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field, ConfigDict, field_validator
 class _BaseModel(BaseModel):
     """Base model with ``from_attributes=True`` for ORM compatibility."""
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, protected_namespaces=())
 
 
 # ---------------------------------------------------------------------------

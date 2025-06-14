@@ -12,6 +12,7 @@ from fastapi import UploadFile
 import logging
 import re
 from collections import Counter
+from ..core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -22,9 +23,9 @@ class FileProcessorService:
     def __init__(self, embedding_model_name: str = "text-embedding-3-small"):
         # self.embedder = SentenceTransformer(embedding_model) # Removed
         self.embedding_model_name = embedding_model_name
-        self.openai_client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
-        if not os.environ.get("OPENAI_API_KEY"):
-            logger.warning("OPENAI_API_KEY environment variable not set. Embedding generation will fail.")
+        self.openai_client = AsyncOpenAI(api_key=settings.openai_api_key)
+        if not settings.openai_api_key:
+            logger.warning("OPENAI_API_KEY not configured. Embedding generation will fail.")
         self.embedding_model = embedding_model_name  # For backward compatibility
         self.tokenizer = tiktoken.get_encoding("cl100k_base")
         self.chunk_size = 800  # tokens

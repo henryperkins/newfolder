@@ -12,6 +12,7 @@ import {
   ActivitiesQueryParams 
 } from '../types/project';
 import { projectApi } from '../utils/api';
+// Remove auth import to prevent circular dependencies
 
 interface ProjectState {
   // Projects
@@ -109,6 +110,16 @@ export const useProjectStore = create<ProjectStore>()(
 
       // Project actions
       fetchProjects: async (params?: ProjectsQueryParams) => {
+        // Check if user is authenticated before making API calls
+        const authStore = await import('./authStore');
+        const { isAuthenticated } = authStore.useAuthStore.getState();
+        
+        if (!isAuthenticated) {
+          console.log('Skipping fetchProjects - user not authenticated');
+          set({ isLoadingProjects: false, projectsError: 'Authentication required' });
+          return;
+        }
+
         set({ isLoadingProjects: true, projectsError: null });
         try {
           const finalParams = { ...get().projectFilters, ...params };
@@ -178,6 +189,16 @@ export const useProjectStore = create<ProjectStore>()(
 
       // Template actions
       fetchTemplates: async (category?: string) => {
+        // Check if user is authenticated before making API calls
+        const authStore = await import('./authStore');
+        const { isAuthenticated } = authStore.useAuthStore.getState();
+        
+        if (!isAuthenticated) {
+          console.log('Skipping fetchTemplates - user not authenticated');
+          set({ isLoadingTemplates: false, templatesError: 'Authentication required' });
+          return;
+        }
+
         set({ isLoadingTemplates: true, templatesError: null });
         try {
           const response = await projectApi.getTemplates(category);

@@ -12,6 +12,13 @@ export default defineConfig({
   },
   server: {
     port: 3000,
+    hmr: {
+      overlay: false, // Disable error overlay temporarily
+    },
+    watch: {
+      usePolling: false, // Disable polling
+      ignored: ['**/node_modules/**', '**/dist/**']
+    },
     proxy: {
       '/api': {
         target: 'http://localhost:8000',

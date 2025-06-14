@@ -8,6 +8,7 @@ import logging
 from openai import AsyncOpenAI
 from ..services.vector_db_service import VectorDBService
 from ..services.ai_provider import AIProvider, AIMessage
+from ..core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -27,9 +28,9 @@ class RAGService:
         
         # Embedding model (OpenAI)
         self.embedding_model_name = embedding_model_name
-        self.openai_client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
-        if not os.environ.get("OPENAI_API_KEY"):
-            logger.warning("OPENAI_API_KEY environment variable not set. Query embedding will fail.")
+        self.openai_client = AsyncOpenAI(api_key=settings.openai_api_key)
+        if not settings.openai_api_key:
+            logger.warning("OPENAI_API_KEY not configured. Query embedding will fail.")
 
         # Re-ranker model
         try:

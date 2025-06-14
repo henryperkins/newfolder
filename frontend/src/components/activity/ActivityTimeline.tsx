@@ -61,7 +61,7 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
       limit
     };
     fetchActivities(params);
-  }, [fetchActivities, projectId, limit]);
+  }, [projectId, limit]); // fetchActivities is stable in Zustand
 
   const handleLoadMore = useCallback(() => {
     if (onLoadMore) {

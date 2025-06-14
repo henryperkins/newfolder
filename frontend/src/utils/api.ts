@@ -24,8 +24,16 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Clear auth state and redirect to login
-      window.location.href = '/login';
+      console.log('401 received for:', error.config?.url, 'Current path:', window.location.pathname);
+      // Only redirect if we're not already on a public route
+      const currentPath = window.location.pathname;
+      const publicRoutes = ['/login', '/register', '/reset-password', '/forgot-password'];
+      
+      if (!publicRoutes.includes(currentPath)) {
+        console.log('Redirecting to login due to 401');
+        // Clear auth state and redirect to login
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }

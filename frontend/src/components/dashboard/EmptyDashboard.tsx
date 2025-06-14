@@ -51,14 +51,16 @@ export const EmptyDashboard: React.FC<EmptyDashboardProps> = ({
 
   const templates = useProjectStore((state) => state.templates);
   const isLoadingTemplates = useProjectStore((state) => state.isLoadingTemplates);
-  const fetchTemplates = useProjectStore((state) => state.fetchTemplates);
-  const hasTemplateFetched = useRef(false);
+  // const fetchTemplates = useProjectStore((state) => state.fetchTemplates);
+  // const hasTemplateFetched = useRef(false);
 
   useEffect(() => {
-    if (templates.length === 0 && !isLoadingTemplates && !hasTemplateFetched.current) {
-      hasTemplateFetched.current = true;
-      fetchTemplates();
-    }
+    // Temporarily disable API calls to debug HMR loop
+    console.log('EmptyDashboard mounted, skipping fetchTemplates for now');
+    // if (templates.length === 0 && !isLoadingTemplates && !hasTemplateFetched.current) {
+    //   hasTemplateFetched.current = true;
+    //   fetchTemplates();
+    // }
   }, [templates.length, isLoadingTemplates]);
 
   const handleChatSubmit = (e: React.FormEvent) => {

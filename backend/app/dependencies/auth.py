@@ -220,39 +220,5 @@ except Exception:  # pragma: no cover – graceful degradation
         pass
 
 
-_vector_db_singleton = None
 
 
-def get_vector_db_service():  # noqa: D401
-    """Return a process-wide *VectorDBService* instance."""
-
-    global _vector_db_singleton
-    if _vector_db_singleton is None:
-        _vector_db_singleton = VectorDBService()  # type: ignore[call-arg]
-    return _vector_db_singleton
-
-
-def get_file_processor_service() -> FileProcessorService:  # noqa: D401
-    """Instantiate :class:`FileProcessorService`."""
-
-    return FileProcessorService()  # type: ignore[call-arg]
-
-
-def get_rag_service(
-    vector_db: VectorDBService | None = None,
-    ai_provider: AIProvider | None = None,
-) -> RAGService:  # noqa: D401
-    """Wire dependencies together and return a **RAGService** instance."""
-
-    if vector_db is None:
-        vector_db = get_vector_db_service()
-    if ai_provider is None:
-        # Re-use the chat AI provider factory if available; otherwise fallback
-        try:
-            from . import get_ai_provider  # type: ignore
-
-            ai_provider = get_ai_provider()  # type: ignore[call-arg]
-        except Exception:
-            ai_provider = AIProvider()  # type: ignore[call-arg]
-
-    return RAGService(vector_db, ai_provider)  # type: ignore[call-arg]
