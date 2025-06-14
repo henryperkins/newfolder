@@ -1,6 +1,4 @@
-# TEMPORARILY DISABLED DUE TO CHROMADB COMPATIBILITY ISSUES
-# import chromadb
-# from chromadb.config import Settings
+import chromadb
 import numpy as np
 from typing import List, Dict, Any, Optional
 import uuid
@@ -10,19 +8,21 @@ logger = logging.getLogger(__name__)
 
 
 class VectorDBService:
-    """Service for managing document embeddings in ChromaDB - TEMPORARILY DISABLED"""
+    """Service for managing document embeddings in ChromaDB"""
 
     def __init__(self, persist_directory: str = "./chroma_db"):
-        # TEMPORARILY DISABLED DUE TO CHROMADB COMPATIBILITY ISSUES
-        logger.warning("VectorDBService is temporarily disabled due to ChromaDB compatibility issues")
-        self.client = None
+        self.client = chromadb.PersistentClient(path=persist_directory)
         self.collection_name = "documents"
-        self.collection = None
+        self.collection = self.client.get_or_create_collection(
+            name=self.collection_name
+        )
 
     def _ensure_collection(self):
-        """Ensure the collection exists - TEMPORARILY DISABLED"""
-        # TEMPORARILY DISABLED DUE TO CHROMADB COMPATIBILITY ISSUES
-        self.collection = None
+        """Ensure the collection exists"""
+        if not self.collection:
+            self.collection = self.client.get_or_create_collection(
+                name=self.collection_name
+            )
 
     async def add_embeddings(
         self,
@@ -30,10 +30,17 @@ class VectorDBService:
         metadata_list: List[Dict[str, Any]],
         ids: Optional[List[str]] = None
     ) -> bool:
-        """Add embeddings with metadata to ChromaDB - TEMPORARILY DISABLED"""
-        # TEMPORARILY DISABLED DUE TO CHROMADB COMPATIBILITY ISSUES
-        logger.warning("VectorDB service is temporarily disabled")
-        return False
+        """Add embeddings with metadata to ChromaDB"""
+        self._ensure_collection()
+        if not ids:
+            ids = [str(uuid.uuid4()) for _ in embeddings]
+
+        self.collection.add(
+            embeddings=[e.tolist() for e in embeddings],
+            metadatas=metadata_list,
+            ids=ids
+        )
+        return True
 
     async def query(
         self,
@@ -41,25 +48,30 @@ class VectorDBService:
         top_k: int = 5,
         filters: Optional[Dict[str, Any]] = None
     ) -> List[Dict[str, Any]]:
-        """Query for similar documents - TEMPORARILY DISABLED"""
-        # TEMPORARILY DISABLED DUE TO CHROMADB COMPATIBILITY ISSUES
-        logger.warning("VectorDB service is temporarily disabled")
-        return []
+        """Query for similar documents"""
+        self._ensure_collection()
+        results = self.collection.query(
+            query_embeddings=[query_embedding.tolist()],
+            n_results=top_k,
+            where=filters
+        )
+        # Process and return results, potentially joining with other data sources
+        return results['documents'][0]
 
     async def delete_embeddings(self, ids: List[str]) -> bool:
-        """Delete embeddings by IDs - TEMPORARILY DISABLED"""
-        # TEMPORARILY DISABLED DUE TO CHROMADB COMPATIBILITY ISSUES
-        logger.warning("VectorDB service is temporarily disabled")
-        return False
+        """Delete embeddings by IDs"""
+        self._ensure_collection()
+        self.collection.delete(ids=ids)
+        return True
 
     async def update_metadata(self, id: str, metadata: Dict[str, Any]) -> bool:
-        """Update metadata for a document - TEMPORARILY DISABLED"""
-        # TEMPORARILY DISABLED DUE TO CHROMADB COMPATIBILITY ISSUES
-        logger.warning("VectorDB service is temporarily disabled")
-        return False
+        """Update metadata for a document"""
+        self._ensure_collection()
+        self.collection.update(ids=[id], metadatas=[metadata])
+        return True
 
     def get_stats(self) -> Dict[str, Any]:
-        """Get collection statistics - TEMPORARILY DISABLED"""
-        # TEMPORARILY DISABLED DUE TO CHROMADB COMPATIBILITY ISSUES
-        logger.warning("VectorDB service is temporarily disabled")
-        return {"total_embeddings": 0, "status": "disabled"}
+        """Get collection statistics"""
+        self._ensure_collection()
+        count = self.collection.count()
+        return {"total_embeddings": count}
