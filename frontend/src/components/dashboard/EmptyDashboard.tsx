@@ -57,7 +57,7 @@ export const EmptyDashboard: React.FC<EmptyDashboardProps> = ({
 
   useEffect(() => {
     fetchTemplates();
-  }, [fetchTemplates]);
+  }, []); // Zustand functions are stable
 
   const handleChatSubmit = (e: React.FormEvent) => {
     e.preventDefault();

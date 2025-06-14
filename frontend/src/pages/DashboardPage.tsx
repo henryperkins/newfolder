@@ -9,7 +9,7 @@ export const DashboardPage: React.FC = () => {
 
   useEffect(() => {
     fetchProjects();
-  }, [fetchProjects]);
+  }, []); // Zustand functions are stable
 
   const handleProjectCreated = (projectId: string) => {
     navigate(`/projects/${projectId}`);
