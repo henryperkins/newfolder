@@ -67,7 +67,7 @@ class RegistrationAvailableResponse(BaseModel):
 # Tag schemas
 class TagBase(BaseModel):
     name: str = Field(..., min_length=2, max_length=30)
-    color: Optional[str] = Field(None, regex="^#[0-9A-Fa-f]{6}$")
+    color: Optional[str] = Field(None, pattern="^#[0-9A-Fa-f]{6}$")
 
 
 class TagCreate(TagBase):
@@ -86,7 +86,7 @@ class TagResponse(TagBase):
 class ProjectBase(BaseModel):
     name: str = Field(..., min_length=3, max_length=100)
     description: Optional[str] = Field(None, max_length=500)
-    color: str = Field(..., regex="^#[0-9A-Fa-f]{6}$")
+    color: str = Field(..., pattern="^#[0-9A-Fa-f]{6}$")
     template_id: Optional[str] = Field(None, max_length=50)
 
     @field_validator('name')
@@ -104,7 +104,7 @@ class ProjectCreate(ProjectBase):
 class ProjectUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=3, max_length=100)
     description: Optional[str] = Field(None, max_length=500)
-    color: Optional[str] = Field(None, regex="^#[0-9A-Fa-f]{6}$")
+    color: Optional[str] = Field(None, pattern="^#[0-9A-Fa-f]{6}$")
     tags: Optional[List[str]] = Field(None, max_items=10)
     is_archived: Optional[bool] = None
 

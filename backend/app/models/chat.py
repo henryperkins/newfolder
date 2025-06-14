@@ -78,7 +78,7 @@ class ChatThread(Base):
     archived_at = Column(DateTime(timezone=True), nullable=True)
 
     # Flexible metadata blob.
-    metadata = Column(JSON, default=dict, nullable=False)
+    thread_metadata = Column(JSON, default=dict, nullable=False)
 
     # ------------------------------------------------------------------
     # Relationships                                                    
@@ -119,7 +119,7 @@ class ChatThread(Base):
             "is_deleted": self.is_deleted,
             "token_count": self.token_count,
             "model_used": self.model_used,
-            "metadata": self.metadata or {},
+            "metadata": self.message_metadata or {},
         }
 
     # ------------------------------------------------------------------
@@ -153,7 +153,7 @@ class ChatThread(Base):
             "is_summarized": bool(self.last_summary_at),
             "summary_count": self.summary_count,
             "is_archived": self.is_archived,
-            "metadata": self.metadata or {},
+            "metadata": self.thread_metadata or {},
         }
 
 
@@ -201,7 +201,7 @@ class ChatMessage(Base):
     is_deleted = Column(Boolean, default=False, nullable=False)
     deleted_at = Column(DateTime(timezone=True), nullable=True)
 
-    metadata = Column(JSON, default=dict, nullable=False)
+    message_metadata = Column(JSON, default=dict, nullable=False)
 
     # Relationships -----------------------------------------------------
     thread = relationship("ChatThread", back_populates="messages")

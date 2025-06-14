@@ -165,7 +165,7 @@ async def upload_document(
 @router.get("", response_model=DocumentListResponse)
 async def list_documents(
     project_id: uuid.UUID,
-    status: Optional[str] = Query(None, regex="^(processing|indexed|error)$"),
+    status: Optional[str] = Query(None, pattern="^(processing|indexed|error)$"),
     include_versions: bool = Query(False),
     current_user: User = Depends(get_current_user),
     db=Depends(get_async_db)
@@ -396,29 +396,28 @@ async def process_document_async(
         from ..core.database import AsyncSessionLocal
 
         async with AsyncSessionLocal() as db:
+            # Process file
+            with open(file_path, 'rb') as f:
+                from fastapi import UploadFile
+                import io
+                file_content = f.read()
+                file_like = io.BytesIO(file_content)
+                upload_file = UploadFile(
+                    filename=file_name,
+                    file=file_like,
+                    content_type=mime_type
+                )
 
-        # Process file
-        with open(file_path, 'rb') as f:
-            from fastapi import UploadFile
-            import io
-            file_content = f.read()
-            file_like = io.BytesIO(file_content)
-            upload_file = UploadFile(
-                filename=file_name,
-                file=file_like,
-                content_type=mime_type
-            )
+                result = await file_processor_service.process_file(
+                    file=upload_file,
+                    file_path=file_path
+                )
 
-            result = await file_processor_service.process_file(
-                file=upload_file,
-                file_path=file_path
-            )
-
-        if result['success']:
-            # Pre-fetch project id for metadata creation.
-            project_id_val = await db.scalar(
-                select(Document.project_id).where(Document.id == document_id)
-            )
+            if result['success']:
+                # Pre-fetch project id for metadata creation.
+                project_id_val = await db.scalar(
+                    select(Document.project_id).where(Document.id == document_id)
+                )
 
             # Update version with processing results
             version_stmt = select(DocumentVersion).where(DocumentVersion.id == version_id)

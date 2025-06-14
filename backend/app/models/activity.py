@@ -25,7 +25,7 @@ class ActivityLog(Base):
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="SET NULL"), nullable=True)
     activity_type = Column(SQLEnum(ActivityType), nullable=False)
-    metadata = Column(JSON, nullable=False, default={})
+    activity_metadata = Column(JSON, nullable=False, default={})
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     # Relationships
