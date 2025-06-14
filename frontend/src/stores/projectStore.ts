@@ -109,16 +109,20 @@ export const useProjectStore = create<ProjectStore>()(
 
       // Project actions
       fetchProjects: async (params?: ProjectsQueryParams) => {
+        console.log('fetchProjects called with params:', params);
         set({ isLoadingProjects: true, projectsError: null });
         try {
           const finalParams = { ...get().projectFilters, ...params };
+          console.log('Making API call with params:', finalParams);
           const response = await projectApi.getProjects(finalParams);
+          console.log('API response:', response);
           set({ 
             projects: response.projects, 
-            isLoadingProjects: false,
-            projectFilters: finalParams
+            isLoadingProjects: false
           });
+          console.log('Set projects state, count:', response.projects.length);
         } catch (error) {
+          console.error('fetchProjects error:', error);
           set({ 
             projectsError: error instanceof Error ? error.message : 'Failed to fetch projects',
             isLoadingProjects: false 

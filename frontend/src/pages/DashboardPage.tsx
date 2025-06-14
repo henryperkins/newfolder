@@ -1,15 +1,27 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useProjectStore } from '@/stores';
 import { EmptyDashboard } from '@/components/dashboard';
 
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
-  const { projects, isLoadingProjects, fetchProjects } = useProjectStore();
+  const projects = useProjectStore((state) => state.projects);
+  const isLoadingProjects = useProjectStore((state) => state.isLoadingProjects);
+  const fetchProjects = useProjectStore((state) => state.fetchProjects);
+  const hasFetched = useRef(false);
 
   useEffect(() => {
-    fetchProjects();
-  }, []); // Zustand functions are stable
+    console.log('Dashboard useEffect triggered', { 
+      projectsLength: projects.length, 
+      isLoadingProjects,
+      hasFetched: hasFetched.current
+    });
+    if (projects.length === 0 && !isLoadingProjects && !hasFetched.current) {
+      console.log('Calling fetchProjects from Dashboard');
+      hasFetched.current = true;
+      fetchProjects();
+    }
+  }, [projects.length, isLoadingProjects]);
 
   const handleProjectCreated = (projectId: string) => {
     navigate(`/projects/${projectId}`);

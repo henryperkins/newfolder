@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useProjectStore } from '@/stores';
 import { ExamplePrompt, ProjectTemplate } from '@/types';
 import { Button, Card } from '@/components/common';
@@ -49,15 +49,17 @@ export const EmptyDashboard: React.FC<EmptyDashboardProps> = ({
   const [selectedTemplate, setSelectedTemplate] = useState<ProjectTemplate | null>(null);
   const [showCreateProjectModal, setShowCreateProjectModal] = useState(false);
 
-  const {
-    templates,
-    isLoadingTemplates,
-    fetchTemplates
-  } = useProjectStore();
+  const templates = useProjectStore((state) => state.templates);
+  const isLoadingTemplates = useProjectStore((state) => state.isLoadingTemplates);
+  const fetchTemplates = useProjectStore((state) => state.fetchTemplates);
+  const hasTemplateFetched = useRef(false);
 
   useEffect(() => {
-    fetchTemplates();
-  }, []); // Zustand functions are stable
+    if (templates.length === 0 && !isLoadingTemplates && !hasTemplateFetched.current) {
+      hasTemplateFetched.current = true;
+      fetchTemplates();
+    }
+  }, [templates.length, isLoadingTemplates]);
 
   const handleChatSubmit = (e: React.FormEvent) => {
     e.preventDefault();
