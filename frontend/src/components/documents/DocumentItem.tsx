@@ -17,6 +17,7 @@ import { Document } from '@/types/document';
 import { useDocumentStore } from '@/stores/documentStore';
 import { Card } from '@/components/common';
 import { cn, formatFileSize, formatRelativeTime } from '@/utils';
+import { documentApi } from '@/utils/documentApi';
 
 interface DocumentItemProps {
   document: Document;
@@ -75,6 +76,15 @@ export const DocumentItem: React.FC<DocumentItemProps> = ({
         console.error('Failed to delete document:', error);
       }
       setIsDeleting(false);
+    }
+  };
+
+  const handleDownload = async () => {
+    try {
+      await documentApi.downloadDocument(document.project_id, document.id, document.name);
+      setShowMenu(false);
+    } catch (error) {
+      console.error('Failed to download document:', error);
     }
   };
 
@@ -140,7 +150,7 @@ export const DocumentItem: React.FC<DocumentItemProps> = ({
                       Version History
                     </button>
                     <button
-                      onClick={() => {/* TODO: Implement download */}}
+                      onClick={handleDownload}
                       className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                     >
                       <Download className="w-4 h-4" />

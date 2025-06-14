@@ -11,13 +11,7 @@ export const DashboardPage: React.FC = () => {
   const hasFetched = useRef(false);
 
   useEffect(() => {
-    console.log('Dashboard useEffect triggered', { 
-      projectsLength: projects.length, 
-      isLoadingProjects,
-      hasFetched: hasFetched.current
-    });
     if (projects.length === 0 && !isLoadingProjects && !hasFetched.current) {
-      console.log('Calling fetchProjects from Dashboard');
       hasFetched.current = true;
       fetchProjects();
     }

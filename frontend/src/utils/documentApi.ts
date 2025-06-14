@@ -87,6 +87,25 @@ export const documentApi = {
     return response.data;
   },
 
+  async downloadDocument(
+    projectId: string,
+    documentId: string,
+    filename: string
+  ): Promise<void> {
+    const response = await api.get(`/projects/${projectId}/documents/${documentId}/download`, {
+      responseType: 'blob',
+    });
+    
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  },
+
   // Deprecated helper kept for backward compatibility – will be removed once
   // all call sites pass the projectId explicitly.
   async getDocumentInfo(documentId: string): Promise<{ project_id: string }> {

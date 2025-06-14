@@ -9,6 +9,8 @@ interface ProjectCardProps {
   project: Project;
   onEdit: (project: Project) => void;
   onDelete: (projectId: string) => void;
+  onDuplicate?: (project: Project) => void;
+  onArchive?: (projectId: string) => void;
   onNavigate?: (projectId: string) => void;
 }
 
@@ -16,6 +18,8 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
   project,
   onEdit,
   onDelete,
+  onDuplicate,
+  onArchive,
   onNavigate
 }) => {
   const [showMenu, setShowMenu] = useState(false);
@@ -48,10 +52,10 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
         onEdit(project);
         break;
       case 'duplicate':
-        // TODO: Implement duplicate functionality
+        onDuplicate?.(project);
         break;
       case 'archive':
-        // TODO: Implement archive functionality  
+        onArchive?.(project.id);
         break;
       case 'delete':
         onDelete(project.id);

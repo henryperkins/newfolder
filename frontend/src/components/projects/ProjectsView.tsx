@@ -34,6 +34,8 @@ export const ProjectsView: React.FC = () => {
     setProjectListView,
     setProjectFilters,
     fetchProjects,
+    createProject,
+    updateProject,
     deleteProject
   } = useProjectStore();
 
@@ -82,6 +84,39 @@ export const ProjectsView: React.FC = () => {
         await deleteProject(projectId);
       } catch (error) {
         console.error('Failed to delete project:', error);
+      }
+    }
+  };
+
+  const handleProjectDuplicate = async (project: Project) => {
+    try {
+      const duplicateData = {
+        name: `${project.name} (Copy)`,
+        description: project.description,
+        color: project.color,
+        template_id: project.template_id,
+        tags: project.tags.map(tag => tag.name)
+      };
+      await createProject(duplicateData);
+    } catch (error) {
+      console.error('Failed to duplicate project:', error);
+    }
+  };
+
+  const handleProjectArchive = async (projectId: string) => {
+    const project = projects.find(p => p.id === projectId);
+    if (!project) return;
+
+    const action = project.is_archived ? 'unarchive' : 'archive';
+    const message = project.is_archived 
+      ? 'Are you sure you want to unarchive this project?'
+      : 'Are you sure you want to archive this project?';
+    
+    if (window.confirm(message)) {
+      try {
+        await updateProject(projectId, { is_archived: !project.is_archived });
+      } catch (error) {
+        console.error(`Failed to ${action} project:`, error);
       }
     }
   };
@@ -283,6 +318,8 @@ export const ProjectsView: React.FC = () => {
                     project={project}
                     onEdit={handleProjectEdit}
                     onDelete={handleProjectDelete}
+                    onDuplicate={handleProjectDuplicate}
+                    onArchive={handleProjectArchive}
                   />
                 ))
               ) : (
@@ -338,7 +375,13 @@ export const ProjectsView: React.FC = () => {
             setShowEditModal(false);
             setSelectedProject(null);
           }}
-          // TODO: Add edit mode props
+          editProject={{
+            id: selectedProject.id,
+            name: selectedProject.name,
+            description: selectedProject.description,
+            color: selectedProject.color,
+            tags: selectedProject.tags.map(tag => tag.name)
+          }}
         />
       )}
     </div>

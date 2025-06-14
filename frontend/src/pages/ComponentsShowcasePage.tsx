@@ -29,7 +29,6 @@ export const ComponentsShowcasePage: React.FC = () => {
   type SampleFormType = z.infer<typeof sampleFormSchema>;
 
   const handleFormSubmit = (data: SampleFormType) => {
-    console.log('Form submitted:', data);
     showToast({
       type: 'success',
       title: 'Form Submitted',
@@ -255,7 +254,7 @@ export const ComponentsShowcasePage: React.FC = () => {
               description="Try adjusting your search terms"
               action={{
                 label: 'Clear filters',
-                onClick: () => console.log('Clear filters'),
+                onClick: () => {},
                 variant: 'outline',
               }}
             />
@@ -267,7 +266,7 @@ export const ComponentsShowcasePage: React.FC = () => {
               description="Get started by creating your first item"
               action={{
                 label: 'Create item',
-                onClick: () => console.log('Create item'),
+                onClick: () => {},
               }}
             />
           </div>

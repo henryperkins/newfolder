@@ -23,6 +23,13 @@ interface ProjectCreationModalProps {
   onSuccess: (projectId: string) => void;
   template?: ProjectTemplate;
   initialName?: string;
+  editProject?: {
+    id: string;
+    name: string;
+    description?: string;
+    color: string;
+    tags: string[];
+  };
 }
 
 const colorOptions = [
@@ -41,14 +48,15 @@ export const ProjectCreationModal: React.FC<ProjectCreationModalProps> = ({
   onClose,
   onSuccess,
   template,
-  initialName
+  initialName,
+  editProject
 }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tagInput, setTagInput] = useState('');
   const [currentTags, setCurrentTags] = useState<string[]>([]);
 
-  const { createProject, projects } = useProjectStore();
+  const { createProject, updateProject, projects } = useProjectStore();
 
   const {
     register,
@@ -68,9 +76,15 @@ export const ProjectCreationModal: React.FC<ProjectCreationModalProps> = ({
 
   const watchedColor = watch('color');
 
-  // Initialize form with template data
+  // Initialize form with template data or edit data
   useEffect(() => {
-    if (template) {
+    if (editProject) {
+      setValue('name', editProject.name);
+      setValue('description', editProject.description || '');
+      setValue('color', editProject.color);
+      setCurrentTags(editProject.tags);
+      setValue('tags', editProject.tags);
+    } else if (template) {
       setValue('name', template.name);
       setValue('description', template.description);
       setValue('color', template.color);
@@ -79,7 +93,7 @@ export const ProjectCreationModal: React.FC<ProjectCreationModalProps> = ({
     } else if (initialName) {
       setValue('name', initialName);
     }
-  }, [template, initialName, setValue]);
+  }, [editProject, template, initialName, setValue]);
 
   // Update form tags when currentTags changes
   useEffect(() => {
@@ -113,7 +127,7 @@ export const ProjectCreationModal: React.FC<ProjectCreationModalProps> = ({
   };
 
   const onSubmit = async (data: ProjectFormData) => {
-    if (!checkNameUniqueness(data.name)) {
+    if (!editProject && !checkNameUniqueness(data.name)) {
       return;
     }
 
@@ -121,16 +135,28 @@ export const ProjectCreationModal: React.FC<ProjectCreationModalProps> = ({
     setError(null);
 
     try {
-      const projectData: CreateProjectData = {
-        name: data.name,
-        description: data.description || undefined,
-        color: data.color,
-        template_id: template?.id,
-        tags: currentTags
-      };
+      if (editProject) {
+        // Update existing project
+        await updateProject(editProject.id, {
+          name: data.name,
+          description: data.description || undefined,
+          color: data.color,
+          tags: currentTags
+        });
+        onSuccess(editProject.id);
+      } else {
+        // Create new project
+        const projectData: CreateProjectData = {
+          name: data.name,
+          description: data.description || undefined,
+          color: data.color,
+          template_id: template?.id,
+          tags: currentTags
+        };
 
-      const project = await createProject(projectData);
-      onSuccess(project.id);
+        const project = await createProject(projectData);
+        onSuccess(project.id);
+      }
       handleClose();
     } catch (err: unknown) {
       const message = err instanceof Error && 'response' in err &&
@@ -139,7 +165,7 @@ export const ProjectCreationModal: React.FC<ProjectCreationModalProps> = ({
         typeof err.response.data === 'object' && err.response.data &&
         'detail' in err.response.data
         ? String(err.response.data.detail)
-        : 'Failed to create project. Please try again.';
+        : `Failed to ${editProject ? 'update' : 'create'} project. Please try again.`;
       setError(message);
     } finally {
       setIsSubmitting(false);
@@ -163,7 +189,7 @@ export const ProjectCreationModal: React.FC<ProjectCreationModalProps> = ({
           {/* Header */}
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-semibold text-gray-900">
-              {template ? `Create ${template.name}` : 'Create New Project'}
+              {editProject ? 'Edit Project' : template ? `Create ${template.name}` : 'Create New Project'}
             </h2>
             <button
               onClick={handleClose}
@@ -308,7 +334,9 @@ export const ProjectCreationModal: React.FC<ProjectCreationModalProps> = ({
                 disabled={isSubmitting}
                 className="flex-1"
               >
-                {isSubmitting ? 'Creating...' : 'Create Project'}
+                {isSubmitting 
+                  ? editProject ? 'Updating...' : 'Creating...' 
+                  : editProject ? 'Update Project' : 'Create Project'}
               </Button>
             </div>
           </form>
