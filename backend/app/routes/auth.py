@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Response, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Response, BackgroundTasks, Request
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from ..core.database import get_db
@@ -57,10 +57,11 @@ async def register(
 
 @router.post("/login", response_model=LoginResponse)
 async def login(
+    request: Request,
     response: Response,
     login_data: LoginRequest,
     db: Session = Depends(get_db),
-    security_service: SecurityService = Depends(get_security_service)
+    security_service: SecurityService = Depends(get_security_service),
 ):
     """Authenticate user and create session"""
     from ..utils.concurrency import run_in_thread
@@ -82,13 +83,15 @@ async def login(
     await run_in_thread(db.commit)
     
     # Set httpOnly cookie
+    scheme = request.url.scheme
+
     response.set_cookie(
         key="access_token",
         value=access_token,
         httponly=True,
-        secure=True,
+        secure=(scheme == "https"),
         samesite="lax",
-        max_age=24 * 60 * 60  # 24 hours
+        max_age=24 * 60 * 60,  # 24 hours
     )
     
     return LoginResponse(

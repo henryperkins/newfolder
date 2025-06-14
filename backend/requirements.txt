@@ -26,4 +26,4 @@ tiktoken==0.5.2
 aiofiles==23.2.1
 # RAG improvements
 openai>=1.0.0
-numpy
+numpy<2.0.0

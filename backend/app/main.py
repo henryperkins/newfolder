@@ -20,6 +20,8 @@ from .routes import (
 )
 # Chat routes (Phase-3)
 from .routes.chat_routes import router as chat_router
+# RAG routes
+from .routes.rag import router as rag_router
 
 from .dependencies.auth import (
     get_websocket_user,
@@ -69,6 +71,8 @@ app.include_router(documents_router)
 app.include_router(chat_router)
 # Phase-5 search router
 app.include_router(search_router)
+# RAG endpoints
+app.include_router(rag_router)
 
 
 @app.get("/")

@@ -291,10 +291,63 @@ class MessageHandler:  # noqa: D401 – cohesive but self-contained helper
             {"type": "assistant_message_start", "message_id": str(assistant_msg.id)},
         )
 
-        # 2. Build prompt.
-        history = self.chat_service.get_thread_messages(thread_id, limit=50)
+        # 2. Build prompt with RAG enhancement if available.
+        history = await self.chat_service.get_thread_messages(thread_id, limit=50)
+        
+        # Get thread details to access project_id for RAG
+        conn_id = self.connection_manager._ws_to_conn.get(id(sender_ws))
+        user_id = self.connection_manager.connection_users.get(conn_id) if conn_id else None
+        
+        thread = None
+        if user_id:
+            thread = await self.chat_service.get_thread(thread_id, user_id)
+        
+        # Try to enhance with RAG context if we have project context
+        enhanced_messages = history
+        if thread and thread.project_id:
+            try:
+                # Import RAG service dependencies
+                from ..dependencies.auth import get_rag_service
+                from ..core.config import settings
+                
+                # Only use RAG if enabled and we have a recent user message
+                if settings.rag_enabled and history:
+                    last_user_msg = next((msg for msg in reversed(history) if msg.is_user), None)
+                    if last_user_msg:
+                        # Get RAG service instance
+                        rag_service = get_rag_service()
+                        
+                        # Get RAG-enhanced prompt for the last user query
+                        enhanced_prompt = await rag_service.get_context_enhanced_prompt(
+                            query=last_user_msg.content,
+                            project_id=str(thread.project_id)
+                        )
+                        
+                        # Create enhanced message list by replacing the last user message
+                        enhanced_messages = history[:-1] if len(history) > 1 else []
+                        
+                        # Add the enhanced prompt as the final user message
+                        from ..models.chat import ChatMessage
+                        enhanced_msg = ChatMessage(
+                            id=last_user_msg.id,
+                            thread_id=last_user_msg.thread_id,
+                            user_id=last_user_msg.user_id,
+                            content=enhanced_prompt,
+                            is_user=True,
+                            created_at=last_user_msg.created_at
+                        )
+                        enhanced_messages.append(enhanced_msg)
+                        
+            except Exception as e:
+                # Log error but continue with regular conversation
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning(f"RAG enhancement failed, falling back to regular chat: {e}")
+                # Reset enhanced_messages to original history for fallback
+                enhanced_messages = history
+        
         conv_mgr = ConversationManager(self.ai_provider)  # type: ignore[name-defined]
-        prompt_msgs = conv_mgr.prepare_messages(history)
+        prompt_msgs = conv_mgr.prepare_messages(enhanced_messages)
 
         async def _stream_and_collect() -> str:  # noqa: D401
             collected_parts: List[str] = []

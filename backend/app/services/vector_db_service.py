@@ -50,13 +50,36 @@ class VectorDBService:
     ) -> List[Dict[str, Any]]:
         """Query for similar documents"""
         self._ensure_collection()
-        results = self.collection.query(
-            query_embeddings=[query_embedding.tolist()],
-            n_results=top_k,
-            where=filters
-        )
-        # Process and return results, potentially joining with other data sources
-        return results['documents'][0]
+        
+        try:
+            results = self.collection.query(
+                query_embeddings=[query_embedding.tolist()],
+                n_results=top_k,
+                where=filters
+            )
+            
+            # Process ChromaDB results into consistent format
+            processed_results = []
+            if results and 'documents' in results and results['documents']:
+                documents = results['documents'][0] if results['documents'] else []
+                metadatas = results.get('metadatas', [[]])[0] if results.get('metadatas') else []
+                distances = results.get('distances', [[]])[0] if results.get('distances') else []
+                ids = results.get('ids', [[]])[0] if results.get('ids') else []
+                
+                for i, doc in enumerate(documents):
+                    result = {
+                        'id': ids[i] if i < len(ids) else f"unknown_{i}",
+                        'text': doc,
+                        'metadata': metadatas[i] if i < len(metadatas) else {},
+                        'distance': distances[i] if i < len(distances) else 1.0
+                    }
+                    processed_results.append(result)
+            
+            return processed_results
+            
+        except Exception as e:
+            logger.error(f"ChromaDB query error: {e}")
+            return []
 
     async def delete_embeddings(self, ids: List[str]) -> bool:
         """Delete embeddings by IDs"""

@@ -1,4 +1,5 @@
 import os
+import asyncio
 from typing import List, Dict, Any, Optional
 # Removed: from sentence_transformers import SentenceTransformer
 from sentence_transformers import CrossEncoder
@@ -41,29 +42,48 @@ class RAGService:
         self.max_context_length = 3000  # characters (remains character-based for now)
                                         # Consider token-based limit if using tiktoken for prompt assembly
 
-    async def _generate_query_embedding(self, query: str) -> Optional[np.ndarray]:
-        try:
-            response = await self.openai_client.embeddings.create(
-                input=query,
-                model=self.embedding_model_name
-            )
-            return np.array(response.data[0].embedding)
-        except Exception as e:
-            logger.error(f"Error generating query embedding with OpenAI: {e}")
-            return None
+    async def _generate_query_embedding(self, query: str, retry_count: int = 2) -> Optional[np.ndarray]:
+        """Generate query embedding with retry logic and error handling."""
+        for attempt in range(retry_count + 1):
+            try:
+                response = await self.openai_client.embeddings.create(
+                    input=query,
+                    model=self.embedding_model_name
+                )
+                return np.array(response.data[0].embedding)
+            except Exception as e:
+                if attempt < retry_count:
+                    logger.warning(f"OpenAI embedding attempt {attempt + 1} failed, retrying: {e}")
+                    await asyncio.sleep(1.0 * (attempt + 1))  # Exponential backoff
+                    continue
+                else:
+                    logger.error(f"Error generating query embedding with OpenAI after {retry_count + 1} attempts: {e}")
+                    return None
 
     async def _rerank_chunks(self, query: str, chunks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         if not self.reranker or not chunks:
             return chunks
         
-        from ..utils.concurrency import run_in_thread
-
-        pairs = [(query, chunk.get('text', '')) for chunk in chunks]
         try:
+            from ..utils.concurrency import run_in_thread
+            
+            pairs = [(query, chunk.get('text', '')) for chunk in chunks]
             scores = await run_in_thread(self.reranker.predict, pairs)
             for chunk, score in zip(chunks, scores):
                 chunk['rerank_score'] = float(score)
             return sorted(chunks, key=lambda x: x.get('rerank_score', 0.0), reverse=True)
+        except ImportError:
+            # Fallback if concurrency utils not available - run synchronously
+            logger.warning("Concurrency utils not available, running reranker synchronously")
+            pairs = [(query, chunk.get('text', '')) for chunk in chunks]
+            try:
+                scores = self.reranker.predict(pairs)
+                for chunk, score in zip(chunks, scores):
+                    chunk['rerank_score'] = float(score)
+                return sorted(chunks, key=lambda x: x.get('rerank_score', 0.0), reverse=True)
+            except Exception as e:
+                logger.error(f"Error during re-ranking: {e}")
+                return chunks
         except Exception as e:
             logger.error(f"Error during re-ranking: {e}")
             return chunks
@@ -80,19 +100,31 @@ class RAGService:
             query_embedding = await self._generate_query_embedding(query)
             if query_embedding is None:
                 # Fallback to regular prompt without context if embedding fails
-                return f"User Question: {query}\n\nPlease provide a helpful answer."
+                logger.warning(f"Embedding generation failed for query, using fallback prompt: {query[:50]}...")
+                return f"User Question: {query}\n\nPlease provide a helpful answer based on your general knowledge."
 
             filters = {"project_id": project_id}
             # Retrieve more chunks initially for the re-ranker to work with
-            relevant_chunks = await self.vector_db.query(
-                query_embedding=query_embedding,
-                top_k=top_k_initial_retrieval, 
-                filters=filters
-            )
+            try:
+                relevant_chunks = await self.vector_db.query(
+                    query_embedding=query_embedding,
+                    top_k=top_k_initial_retrieval, 
+                    filters=filters
+                )
+            except Exception as e:
+                logger.error(f"Vector database query failed: {e}")
+                return f"User Question: {query}\n\nPlease provide a helpful answer. (Note: Document context unavailable due to search error)"
 
-            # Re-rank the retrieved chunks
-            if self.reranker:
-                relevant_chunks = await self._rerank_chunks(query, relevant_chunks)
+            if not relevant_chunks:
+                logger.info(f"No relevant chunks found for project {project_id}")
+                return f"User Question: {query}\n\nPlease provide a helpful answer. (Note: No relevant documents found in your project)"
+
+            # Re-rank the retrieved chunks with error handling
+            try:
+                if self.reranker:
+                    relevant_chunks = await self._rerank_chunks(query, relevant_chunks)
+            except Exception as e:
+                logger.warning(f"Re-ranking failed, using original chunk order: {e}")
             
             # Select top N chunks after re-ranking for the context
             final_chunks_for_context = relevant_chunks[:top_k_final_context]
@@ -145,8 +177,8 @@ Please provide a comprehensive answer based on the context above. If you referen
             return prompt
 
         except Exception as e:
-            logger.error(f"Error creating context-enhanced prompt: {e}")
-            return f"User Question: {query}\n\nAn error occurred while retrieving context. Please provide a general answer."
+            logger.error(f"Unexpected error creating context-enhanced prompt: {e}")
+            return f"User Question: {query}\n\nPlease provide a helpful answer. (Note: An error occurred while retrieving document context)"
 
     async def answer_query(
         self,
@@ -155,9 +187,9 @@ Please provide a comprehensive answer based on the context above. If you referen
         thread_id: Optional[str] = None,
         stream: bool = True
     ) -> Any:
-        """Answer a query using RAG"""
+        """Answer a query using RAG with comprehensive error handling and fallbacks"""
         try:
-            # Get context-enhanced prompt
+            # Get context-enhanced prompt with built-in fallbacks
             prompt = await self.get_context_enhanced_prompt(query, project_id)
 
             # Prepare messages for AI provider
@@ -166,23 +198,53 @@ Please provide a comprehensive answer based on the context above. If you referen
                 AIMessage(role="user", content=prompt)
             ]
 
-            # Get response from AI provider
-            if stream:
-                # Return async generator for streaming
-                return self.ai_provider.complete(messages, stream=True)
-            else:
-                # Return complete response
-                response = await self.ai_provider.complete(messages, stream=False)
-                return response.content
+            # Get response from AI provider with retry logic
+            max_retries = 2
+            for attempt in range(max_retries + 1):
+                try:
+                    if stream:
+                        # Return async generator for streaming
+                        return self.ai_provider.complete(messages, stream=True)
+                    else:
+                        # Return complete response
+                        response = await self.ai_provider.complete(messages, stream=False)
+                        return response.content
+                except Exception as ai_error:
+                    if attempt < max_retries:
+                        logger.warning(f"AI provider attempt {attempt + 1} failed, retrying: {ai_error}")
+                        await asyncio.sleep(1.0 * (attempt + 1))
+                        continue
+                    else:
+                        raise ai_error
 
         except Exception as e:
             logger.error(f"Error answering query with RAG: {e}")
-            # Provide a more informative error or fallback response
-            if stream:
-                async def error_stream():
-                    yield "Sorry, an error occurred while processing your query."
-                return error_stream()
-            return "Sorry, an error occurred while processing your query."
+            
+            # Fallback to basic AI response without RAG context
+            try:
+                logger.info("Attempting fallback to basic AI response without RAG")
+                fallback_messages = [
+                    AIMessage(role="system", content="You are a helpful AI assistant."),
+                    AIMessage(role="user", content=f"User Question: {query}\n\nPlease provide a helpful answer based on your general knowledge.")
+                ]
+                
+                if stream:
+                    return self.ai_provider.complete(fallback_messages, stream=True)
+                else:
+                    response = await self.ai_provider.complete(fallback_messages, stream=False)
+                    return response.content
+                    
+            except Exception as fallback_error:
+                logger.error(f"Fallback AI response also failed: {fallback_error}")
+                
+                # Final fallback - static error message
+                error_message = "I apologize, but I'm currently experiencing technical difficulties and cannot process your query. Please try again later."
+                
+                if stream:
+                    async def error_stream():
+                        yield error_message
+                    return error_stream()
+                return error_message
 
     async def get_relevant_sources(
         self,

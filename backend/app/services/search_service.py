@@ -85,26 +85,48 @@ class SearchService:
             for msg in messages
         ]
 
-        # 3. Vector search (disabled due to ChromaDB compatibility issues)
+        # 3. Vector search - now enabled with proper ChromaDB integration
         try:
-            collection_name = f"project_{project_id}" if project_id else f"user_{user_id}"
+            # Generate query embedding using OpenAI
+            from openai import AsyncOpenAI
+            import numpy as np
+            import os
+            
+            openai_client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+            if os.environ.get("OPENAI_API_KEY"):
+                try:
+                    embedding_response = await openai_client.embeddings.create(
+                        input=query,
+                        model="text-embedding-3-small"
+                    )
+                    query_embedding = np.array(embedding_response.data[0].embedding)
+                    
+                    # Set up filters for project-specific search
+                    filters = {"project_id": project_id} if project_id else {"user_id": user_id}
+                    
+                    semantic_results = await self.vector_service.query(
+                        query_embedding=query_embedding,
+                        top_k=limit,
+                        filters=filters
+                    )
 
-            semantic_results = await self.vector_service.query(
-                query_embedding=None,  # Would need to generate embedding from query
-                top_k=limit
-            )
-
-            if semantic_results:
-                results["semantic_matches"] = [
-                    {
-                        "id": res.get("id"),
-                        "content": res.get("content", "")[:200] + "...",
-                        "score": res.get("score", 0),
-                        "metadata": res.get("metadata", {}),
-                        "type": "semantic"
-                    }
-                    for res in semantic_results
-                ]
+                    if semantic_results:
+                        results["semantic_matches"] = [
+                            {
+                                "id": res.get("id", ""),
+                                "content": res.get("text", "")[:200] + ("..." if len(res.get("text", "")) > 200 else ""),
+                                "score": 1.0 - res.get("distance", 0.5),  # Convert distance to similarity score
+                                "metadata": res.get("metadata", {}),
+                                "type": "semantic"
+                            }
+                            for res in semantic_results
+                            if res.get("text")  # Only include results with text content
+                        ]
+                except Exception as embedding_error:
+                    logger.warning(f"Failed to generate embedding for query: {embedding_error}")
+            else:
+                logger.warning("OPENAI_API_KEY not set, skipping vector search")
+                
         except Exception as e:
             logger.error(f"Vector search failed: {e}")
 
