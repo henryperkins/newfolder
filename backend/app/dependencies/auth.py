@@ -112,8 +112,9 @@ async def get_document_service(
 
 
 def _lazy_import_vector_service():
-    from backend.app.services.vector_db_service import VectorDBService
-    return VectorDBService()
+    # from backend.app.services.vector_db_service import VectorDBService
+    # return VectorDBService()
+    return None
 
 
 def _lazy_import_file_processor():
@@ -220,10 +221,10 @@ except Exception:  # pragma: no cover – graceful degradation
         pass
 
 
-_vector_db_singleton: VectorDBService | None = None
+_vector_db_singleton = None
 
 
-def get_vector_db_service() -> VectorDBService:  # noqa: D401
+def get_vector_db_service():  # noqa: D401
     """Return a process-wide *VectorDBService* instance."""
 
     global _vector_db_singleton

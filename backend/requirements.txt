@@ -24,3 +24,5 @@ sentence-transformers==2.2.2
 chromadb==0.4.18
 tiktoken==0.5.2
 aiofiles==23.2.1
+# RAG improvements
+openai>=1.0.0

@@ -5,7 +5,8 @@ from typing import List, Dict, Any, Tuple, Optional
 import fitz  # PyMuPDF
 from docx import Document as DocxDocument
 import tiktoken
-from sentence_transformers import SentenceTransformer
+# Removed: from sentence_transformers import SentenceTransformer
+from openai import AsyncOpenAI
 import numpy as np
 from fastapi import UploadFile
 import logging
@@ -18,9 +19,13 @@ logger = logging.getLogger(__name__)
 class FileProcessorService:
     """Service for processing uploaded documents"""
 
-    def __init__(self, embedding_model: str = "all-MiniLM-L6-v2"):
-        self.embedder = SentenceTransformer(embedding_model)
-        self.embedding_model = embedding_model
+    def __init__(self, embedding_model_name: str = "text-embedding-3-small"):
+        # self.embedder = SentenceTransformer(embedding_model) # Removed
+        self.embedding_model_name = embedding_model_name
+        self.openai_client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+        if not os.environ.get("OPENAI_API_KEY"):
+            logger.warning("OPENAI_API_KEY environment variable not set. Embedding generation will fail.")
+        self.embedding_model = embedding_model_name  # For backward compatibility
         self.tokenizer = tiktoken.get_encoding("cl100k_base")
         self.chunk_size = 800  # tokens
         self.chunk_overlap = 200  # tokens
@@ -55,27 +60,35 @@ class FileProcessorService:
             word_count = len(text_content.split())
 
             # Generate chunks
-            chunks = self._create_chunks(text_content)
+            chunks_texts = self._create_chunks(text_content)
 
-            # Generate embeddings for each chunk
-            embeddings = []
-            chunk_metadata = []
-
-            for i, chunk_text in enumerate(chunks):
-                # Generate embedding
-                from backend.app.utils.concurrency import run_in_thread
-
-                embedding = await run_in_thread(self.embedder.encode, chunk_text)
-                embeddings.append(embedding)
-
-                # Prepare metadata
+            # Generate embeddings for each chunk using OpenAI
+            embeddings_vectors = []
+            if chunks_texts:
+                try:
+                    # OpenAI can process a list of texts in one call
+                    response = await self.openai_client.embeddings.create(
+                        input=chunks_texts,
+                        model=self.embedding_model_name
+                    )
+                    embeddings_vectors = [np.array(item.embedding) for item in response.data]
+                except Exception as e:
+                    logger.error(f"Error generating embeddings with OpenAI: {e}")
+                    # Fallback or error handling: return success: False or empty embeddings
+                    return {
+                        "success": False,
+                        "error": f"Failed to generate embeddings: {str(e)}"
+                    }
+            
+            chunk_metadata_list = []
+            for i, chunk_text_item in enumerate(chunks_texts):
                 metadata = {
                     "chunk_index": i,
-                    "chunk_text": chunk_text,
-                    "char_start": chunk_text[:50],  # First 50 chars for preview
-                    "token_count": len(self.tokenizer.encode(chunk_text))
+                    "chunk_text": chunk_text_item,
+                    "char_start": chunk_text_item[:50],  # First 50 chars for preview
+                    "token_count": len(self.tokenizer.encode(chunk_text_item))
                 }
-                chunk_metadata.append(metadata)
+                chunk_metadata_list.append(metadata)
 
             # Generate suggested tags
             suggested_tags = self._generate_tags(text_content)
@@ -86,11 +99,11 @@ class FileProcessorService:
                 "page_count": page_count,
                 "word_count": word_count,
                 "extracted_text": text_content[:10000],  # First 10k chars for search
-                "chunks": chunks,
-                "embeddings": embeddings,
-                "chunk_metadata": chunk_metadata,
+                "chunks": chunks_texts,  # List of chunk texts
+                "embeddings": embeddings_vectors,  # List of numpy arrays (embeddings)
+                "chunk_metadata": chunk_metadata_list,
                 "suggested_tags": suggested_tags,
-                "embedding_model": self.embedding_model
+                "embedding_model": self.embedding_model_name
             }
 
         except Exception as e:
@@ -169,7 +182,8 @@ class FileProcessorService:
             if end_idx >= len(tokens):
                 break
 
-        return chunks
+        # Filter out very small or empty chunks that might result from aggressive overlap
+        return [chunk for chunk in chunks if len(self.tokenizer.encode(chunk)) > self.chunk_overlap / 2 and chunk.strip()]
 
     def _generate_tags(self, text: str, max_tags: int = 5) -> List[str]:
         """Generate suggested tags from text content"""
@@ -210,18 +224,16 @@ class FileProcessorService:
         tags = []
         for word, _ in word_freq.most_common(max_tags * 2):
             # Basic singularization (very simple)
-            if word.endswith('ies'):
+            if word.endswith('ies') and len(word) > 3:
                 tag = word[:-3] + 'y'
-            elif word.endswith('es'):
+            elif word.endswith('es') and len(word) > 2:
                 tag = word[:-2]
-            elif word.endswith('s') and len(word) > 4:
+            elif word.endswith('s') and len(word) > 4:  # Avoid short words like 'as', 'is'
                 tag = word[:-1]
             else:
                 tag = word
-
-            if tag not in tags:
+            if tag not in tags and len(tag) > 3:  # Ensure tag itself is meaningful
                 tags.append(tag)
-
             if len(tags) >= max_tags:
                 break
 

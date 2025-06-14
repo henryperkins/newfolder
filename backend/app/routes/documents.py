@@ -419,64 +419,64 @@ async def process_document_async(
                     select(Document.project_id).where(Document.id == document_id)
                 )
 
-            # Update version with processing results
-            version_stmt = select(DocumentVersion).where(DocumentVersion.id == version_id)
-            version = await db.scalar(version_stmt)
+                # Update version with processing results
+                version_stmt = select(DocumentVersion).where(DocumentVersion.id == version_id)
+                version = await db.scalar(version_stmt)
 
-            if version:
-                version.file_hash = result['file_hash']
-                version.page_count = result.get('page_count', 0)
-                version.word_count = result.get('word_count', 0)
-                version.suggested_tags = result.get('suggested_tags', [])
-                version.extracted_text = result.get('extracted_text', '')
-                version.chunk_count = len(result.get('chunks', []))
-                version.embedding_model = result.get('embedding_model', '')
+                if version:
+                    version.file_hash = result['file_hash']
+                    version.page_count = result.get('page_count', 0)
+                    version.word_count = result.get('word_count', 0)
+                    version.suggested_tags = result.get('suggested_tags', [])
+                    version.extracted_text = result.get('extracted_text', '')
+                    version.chunk_count = len(result.get('chunks', []))
+                    version.embedding_model = result.get('embedding_model', '')
 
-                # Store embeddings in vector DB
-                embeddings = result['embeddings']
-                chunk_metadata = []
+                    # Store embeddings in vector DB
+                    embeddings = result['embeddings']
+                    chunk_metadata = []
 
-                for i, (chunk, metadata) in enumerate(zip(result['chunks'], result['chunk_metadata'])):
-                    meta = {
-                        'document_id': document_id,
-                        'version_id': version_id,
-                        'project_id': str(project_id_val),
-                        'document_name': file_name,
-                        'chunk_index': i,
-                        'text': chunk,
-                        **metadata
-                    }
-                    chunk_metadata.append(meta)
+                    for i, (chunk, metadata) in enumerate(zip(result['chunks'], result['chunk_metadata'])):
+                        meta = {
+                            'document_id': document_id,
+                            'version_id': version_id,
+                            'project_id': str(project_id_val),
+                            'document_name': file_name,
+                            'chunk_index': i,
+                            'text': chunk,
+                            **metadata
+                        }
+                        chunk_metadata.append(meta)
 
-                # Add to vector DB
-                success = await vector_db_service.add_embeddings(
-                    embeddings=embeddings,
-                    metadata_list=chunk_metadata
-                )
+                    # Add to vector DB
+                    success = await vector_db_service.add_embeddings(
+                        embeddings=embeddings,
+                        metadata_list=chunk_metadata
+                    )
 
-                # Update document status
+                    # Update document status
+                    document = await db.scalar(select(Document).where(Document.id == document_id))
+
+                    if document:
+                        if success:
+                            document.status = "indexed"
+                            document.indexed_at = datetime.utcnow()
+                            await _emit_status_update(document, db)
+                        else:
+                            document.status = "error"
+                            document.error_message = "Failed to store embeddings"
+                            await _emit_status_update(document, db)
+
+                    await db.commit()
+            else:
+                # Update document with error
                 document = await db.scalar(select(Document).where(Document.id == document_id))
 
                 if document:
-                    if success:
-                        document.status = "indexed"
-                        document.indexed_at = datetime.utcnow()
-                        await _emit_status_update(document, db)
-                    else:
-                        document.status = "error"
-                        document.error_message = "Failed to store embeddings"
-                        await _emit_status_update(document, db)
-
-                await db.commit()
-        else:
-            # Update document with error
-            document = await db.scalar(select(Document).where(Document.id == document_id))
-
-            if document:
-                document.status = "error"
-                document.error_message = result.get('error', 'Unknown error')
-                await _emit_status_update(document, db)
-                await db.commit()
+                    document.status = "error"
+                    document.error_message = result.get('error', 'Unknown error')
+                    await _emit_status_update(document, db)
+                    await db.commit()
 
     except Exception as e:
         # Update document with error
