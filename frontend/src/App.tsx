@@ -64,6 +64,26 @@ function App() {
           }
         />
         <Route
+          path="/projects/:projectId/chat/:threadId"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <ProjectPage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/projects/:projectId/chat/new"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <ProjectPage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/chats"
           element={
             <ProtectedRoute>

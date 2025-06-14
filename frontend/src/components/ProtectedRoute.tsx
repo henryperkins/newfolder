@@ -34,7 +34,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     };
 
     checkAuth();
-  }, [isAuthenticated, setUser, user]);
+  }, []); // Empty dependency array - auth check should only run once
 
   if (isLoading) {
     return (

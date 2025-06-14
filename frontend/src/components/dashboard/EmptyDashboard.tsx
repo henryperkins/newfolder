@@ -179,9 +179,14 @@ export const EmptyDashboard: React.FC<EmptyDashboardProps> = ({
         isOpen={showSelectProjectModal}
         onClose={() => setShowSelectProjectModal(false)}
         onProjectSelect={(projectId) => {
-          if (onProjectCreated) {
-            onProjectCreated(projectId);
+          // Navigate to new chat in the selected project with the initial message
+          const params = new URLSearchParams();
+          if (chatInput.trim()) {
+            params.set('message', chatInput.trim());
           }
+          const queryString = params.toString();
+          const url = `/projects/${projectId}/chat/new${queryString ? `?${queryString}` : ''}`;
+          window.location.href = url;
         }}
         onCreateNew={handleCreateFirstProject}
         initialMessage={chatInput}

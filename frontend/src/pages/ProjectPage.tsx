@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
+import { useParams, useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { ChevronLeft, Folder, MessageSquare, Clock } from 'lucide-react';
 
 import { useProjectStore } from '@/stores/projectStore';
@@ -8,6 +8,7 @@ import { useDocumentStore } from '@/stores/documentStore';
 import { Button, Card } from '@/components/common';
 import { DocumentManager } from '@/components/documents/DocumentManager';
 import { NotificationBell } from '@/components/documents/NotificationBell';
+import ChatView from '@/components/chat/ChatView';
 import { cn, formatRelativeTime } from '@/utils';
 
 type TabKey = 'documents' | 'chats' | 'activity' | 'settings';
@@ -20,8 +21,9 @@ const TABS: { key: TabKey; label: string; icon: React.ElementType }[] = [
 ];
 
 export const ProjectPage: React.FC = () => {
-  const { projectId } = useParams<{ projectId: string }>();
+  const { projectId, threadId } = useParams<{ projectId: string; threadId?: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const {
     projects,
@@ -34,10 +36,18 @@ export const ProjectPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = (searchParams.get('tab') || 'documents') as TabKey;
+  
+  // Determine active tab based on URL - if we're in a chat route, show chats tab
+  const isInChatRoute = location.pathname.includes('/chat');
+  const activeTab = isInChatRoute ? 'chats' : (searchParams.get('tab') || 'documents') as TabKey;
 
   const setTab = (tab: TabKey) => {
-    setSearchParams({ tab });
+    if (tab === 'chats') {
+      // Navigate to new chat route
+      navigate(`/projects/${projectId}/chat/new`);
+    } else {
+      setSearchParams({ tab });
+    }
   };
 
   // Fetch project if not present
@@ -154,7 +164,10 @@ export const ProjectPage: React.FC = () => {
       {activeTab === 'documents' && <DocumentManager />}
 
       {activeTab === 'chats' && (
-        <Card className="p-8 text-center text-gray-500">Chats coming soon…</Card>
+        <ChatView 
+          projectId={projectId!} 
+          threadId={threadId}
+        />
       )}
 
       {activeTab === 'activity' && (

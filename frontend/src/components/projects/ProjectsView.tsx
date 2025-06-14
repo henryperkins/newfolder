@@ -39,7 +39,7 @@ export const ProjectsView: React.FC = () => {
 
   useEffect(() => {
     fetchProjects();
-  }, [fetchProjects]);
+  }, []); // Zustand functions are stable
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);

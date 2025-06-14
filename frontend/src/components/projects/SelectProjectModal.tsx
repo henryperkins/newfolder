@@ -29,7 +29,7 @@ export const SelectProjectModal: React.FC<SelectProjectModalProps> = ({
     if (isOpen) {
       fetchProjects();
     }
-  }, [isOpen, fetchProjects]);
+  }, [isOpen]); // fetchProjects is stable
 
   const filteredProjects = projects.filter(project =>
     !project.is_archived &&

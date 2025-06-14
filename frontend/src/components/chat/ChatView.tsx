@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useChatStore } from '../../stores/chatStore';
 import { useWebSocket } from '../../hooks/useWebSocket';
 import { useAuth } from '../../hooks/useAuth';
@@ -29,6 +29,7 @@ function estimateMessageHeight(message: ChatMessage): number {
 
 const ChatView: React.FC<ChatViewProps> = ({ projectId, threadId, onThreadChange }) => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   useAuth();
 
   const {
@@ -68,6 +69,20 @@ const ChatView: React.FC<ChatViewProps> = ({ projectId, threadId, onThreadChange
       loadThread(threadId);
     }
   }, [threadId, activeThreadId, loadThread]);
+
+  // Handle initial message from URL parameters (for new chats)
+  useEffect(() => {
+    const initialMessage = searchParams.get('message');
+    if (initialMessage && (threadId === 'new' || !threadId)) {
+      // Auto-send the initial message when starting a new chat
+      handleSend(initialMessage);
+      // Clear the URL parameter after sending
+      const newSearchParams = new URLSearchParams(searchParams);
+      newSearchParams.delete('message');
+      const queryString = newSearchParams.toString();
+      navigate(`/projects/${projectId}/chat/new${queryString ? `?${queryString}` : ''}`, { replace: true });
+    }
+  }, [searchParams, threadId, projectId, navigate]);
 
   // Auto-scroll behaviour
   useEffect(() => {
