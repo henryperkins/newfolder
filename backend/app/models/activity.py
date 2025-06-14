@@ -16,6 +16,7 @@ class ActivityType(str, Enum):
     CHAT_STARTED = "chat_started"
     DOCUMENT_UPLOADED = "document_uploaded"
     DOCUMENT_DELETED = "document_deleted"
+    SEARCH_PERFORMED = "search_performed"
 
 
 class ActivityLog(Base):

@@ -1,13 +1,14 @@
 import React from 'react';
 import { cn } from '@/utils';
 
-export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+export interface TextareaProps
+  extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   label?: string;
   error?: string;
   helperText?: string;
 }
 
-export const Input = React.forwardRef<HTMLInputElement, InputProps>(
+export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
   ({ label, error, helperText, className, ...props }, ref) => {
     return (
       <div className="space-y-1">
@@ -16,10 +17,10 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
             {label}
           </label>
         )}
-        <input
+        <textarea
           ref={ref}
           className={cn(
-            'input',
+            'textarea',
             error && 'border-red-500 focus:ring-red-500',
             className
           )}
@@ -34,4 +35,4 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
   }
 );
 
-Input.displayName = 'Input';
+Textarea.displayName = 'Textarea';

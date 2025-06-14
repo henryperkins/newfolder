@@ -152,12 +152,12 @@ export const chatApi = {
   },
 
   async editMessage(messageId: string, content: string): Promise<ChatMessage> {
-    const response = await api.patch(`/messages/${messageId}`, { content });
+    const response = await api.patch(`/threads/messages/${messageId}`, { content });
     return response.data;
   },
 
   async deleteMessage(messageId: string): Promise<void> {
-    await api.delete(`/messages/${messageId}`);
+    await api.delete(`/threads/messages/${messageId}`);
   },
 
   async regenerateResponse(
@@ -169,4 +169,16 @@ export const chatApi = {
       options,
     });
   },
+};
+
+// -----------------------------------------------------------------------------
+// Search API (Phase-5)
+// -----------------------------------------------------------------------------
+export const searchApi = {
+  search: async (query: string, projectId?: string): Promise<any> => {
+    const params = new URLSearchParams({ q: query });
+    if (projectId) params.append('project_id', projectId);
+    const response = await api.get(`/search?${params}`);
+    return response.data;
+  }
 };

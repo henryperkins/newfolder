@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Plus, Search } from 'lucide-react';
-import { Card, Button, Input } from '@/components/common';
+import { Card, Button, Input, Textarea } from '@/components/common';
 import {
   Modal,
   Badge,
@@ -11,12 +11,31 @@ import {
   EmptyState,
   useToast,
 } from '@/components/ui';
+import { Form, InputField, TextareaField } from '@/components/Form';
+import { z } from 'zod';
 
 export const ComponentsShowcasePage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [selectValue, setSelectValue] = useState('');
   const { showToast } = useToast();
+
+  const sampleFormSchema = z.object({
+    name: z.string().min(1, 'Name is required'),
+    email: z.string().email('Invalid email address'),
+    message: z.string().min(10, 'Message must be at least 10 characters'),
+  });
+
+  type SampleFormType = z.infer<typeof sampleFormSchema>;
+
+  const handleFormSubmit = (data: SampleFormType) => {
+    console.log('Form submitted:', data);
+    showToast({
+      type: 'success',
+      title: 'Form Submitted',
+      message: JSON.stringify(data, null, 2),
+    });
+  };
 
   const selectOptions = [
     { value: 'option1', label: 'Option 1' },
@@ -118,6 +137,16 @@ export const ComponentsShowcasePage: React.FC = () => {
             onChange={setSelectValue}
             placeholder="Choose an option..."
           />
+          <Textarea
+            label="Textarea"
+            placeholder="Enter a long text..."
+            helperText="This is a textarea component"
+          />
+          <Textarea
+            label="Textarea with Error"
+            error="This field is required"
+            placeholder="Error state"
+          />
         </div>
       </Card>
 
@@ -146,7 +175,6 @@ export const ComponentsShowcasePage: React.FC = () => {
         <Button onClick={() => setIsModalOpen(true)}>
           Open Modal
         </Button>
-        
         <Modal
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
@@ -244,6 +272,30 @@ export const ComponentsShowcasePage: React.FC = () => {
             />
           </div>
         </div>
+      </Card>
+
+      {/* Form Component */}
+      <Card>
+        <h2 className="text-xl font-semibold mb-4">Form Component</h2>
+        <Form
+          validationSchema={sampleFormSchema}
+          onSubmit={handleFormSubmit}
+          className="space-y-4 max-w-md"
+        >
+          <InputField name="name" label="Name" placeholder="Enter your name" />
+          <InputField
+            name="email"
+            type="email"
+            label="Email"
+            placeholder="Enter your email"
+          />
+          <TextareaField
+            name="message"
+            label="Message"
+            placeholder="Enter your message"
+          />
+          <Button type="submit">Submit</Button>
+        </Form>
       </Card>
     </div>
   );

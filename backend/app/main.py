@@ -16,13 +16,14 @@ from .routes import (
     tags_router,
     activities_router,
     documents_router,
+    search_router,
 )
 # Chat routes (Phase-3)
 from .routes.chat_routes import router as chat_router
 
 from .dependencies.auth import (
-    get_websocket_user, 
-    get_connection_manager, 
+    get_websocket_user,
+    get_connection_manager,
     get_chat_service,
     get_ai_provider
 )
@@ -66,6 +67,8 @@ app.include_router(activities_router)
 app.include_router(documents_router)
 # Newly added chat endpoints
 app.include_router(chat_router)
+# Phase-5 search router
+app.include_router(search_router)
 
 
 @app.get("/")

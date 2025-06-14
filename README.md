@@ -1,162 +1,273 @@
-# AI Productivity App - Phase 1
+# AI-Powered Document & Chat Management System
 
-A private, single-user AI productivity application with secure authentication, responsive UI, and foundation for future AI-powered features.
+A production-ready document management and AI chat application with RAG (Retrieval-Augmented Generation) capabilities, built for single-user productivity.
 
-## Features Implemented (Phase 1)
+## Features
 
-### Authentication & Security
-- ✅ User registration (single-user constraint enforced)
-- ✅ Secure login with JWT tokens stored in httpOnly cookies
-- ✅ Password reset functionality via email
-- ✅ Profile management and password change
-- ✅ Rate limiting on authentication endpoints
-- ✅ Input validation and security headers
+- 📄 **Document Management**: Upload, version, and organize documents with AI-suggested tags
+- 💬 **AI Chat**: Context-aware conversations using your documents via RAG
+- 🔍 **Unified Search**: Search across documents, chats, and semantic content
+- 🚀 **Real-time Updates**: WebSocket-powered live notifications
+- 🔐 **Secure**: JWT authentication, encrypted connections, rate limiting
+- 📊 **Project Organization**: Organize work into projects with isolated contexts
 
-### User Interface
-- ✅ Responsive layout with collapsible sidebar
-- ✅ Clean, modern design using Tailwind CSS
-- ✅ Mobile-friendly responsive behavior
-- ✅ Keyboard shortcuts (Cmd/Ctrl + B to toggle sidebar)
-- ✅ Loading states and error handling
-- ✅ Form validation with real-time feedback
-
-### Technical Foundation
-- ✅ FastAPI backend with PostgreSQL database
-- ✅ React frontend with TypeScript and Vite
-- ✅ Zustand for state management
-- ✅ Database migrations with Alembic
-- ✅ Docker containerization
-- ✅ RESTful API design
-
-## Technology Stack
+## Architecture
 
 ### Backend
-- **FastAPI** - Modern Python web framework
-- **PostgreSQL** - Reliable SQL database
-- **SQLAlchemy** - Database ORM
-- **Alembic** - Database migrations
-- **Pydantic** - Data validation
-- **bcrypt** - Password hashing
-- **JWT** - Secure authentication tokens
+- **Framework**: FastAPI with async SQLAlchemy
+- **Database**: PostgreSQL with full-text search
+- **Vector Store**: ChromaDB for semantic search (currently disabled)
+- **Cache**: Redis for session management
+- **AI**: OpenAI GPT integration with streaming
 
 ### Frontend
-- **React 18** - UI library
-- **TypeScript** - Type safety
-- **Vite** - Fast build tool
-- **Tailwind CSS** - Utility-first styling
-- **Zustand** - Lightweight state management
-- **React Hook Form** - Form handling
-- **Zod** - Schema validation
-- **Axios** - HTTP client
-
-### Infrastructure
-- **Docker & Docker Compose** - Containerization
-- **Nginx** - Reverse proxy and static file serving
-- **PostgreSQL** - Database
+- **Framework**: React 18 with TypeScript
+- **State**: Zustand for global state management
+- **Styling**: Tailwind CSS
+- **Build**: Vite for fast development
 
 ## Quick Start
 
 ### Prerequisites
-- Docker and Docker Compose
-- Git
+- Docker & Docker Compose
+- OpenAI API key
+- 8GB RAM minimum
+- Linux/macOS/WSL2 (for production)
 
-### 1. Clone and Setup
+### Development Setup
+
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd ai-productivity-app
+   ```
+
+2. **Configure environment**
+   ```bash
+   cp .env.example .env
+   ```
+
+   Edit `.env` with your settings:
+   ```env
+   # Database
+   POSTGRES_USER=appuser
+   POSTGRES_PASSWORD=securepwd123
+   POSTGRES_DB=aiproductivity
+
+   # Redis
+   REDIS_PASSWORD=redispwd123
+
+   # Application
+   SECRET_KEY=your-secret-key-min-32-chars
+   OPENAI_API_KEY=sk-your-openai-key
+
+   # URLs (development)
+   FRONTEND_API_URL=http://localhost/api
+   FRONTEND_WS_URL=ws://localhost/ws
+   ```
+
+3. **Start services**
+   ```bash
+   docker-compose up -d
+   ```
+
+4. **Access the application**
+   - Frontend: http://localhost
+   - API Docs: http://localhost/api/docs
+
+## Production Deployment
+
+### SSL Certificate Setup
+
+1. **Using Let's Encrypt (recommended)**
+   ```bash
+   sudo certbot certonly --standalone -d yourdomain.com
+   sudo cp /etc/letsencrypt/live/yourdomain.com/fullchain.pem ./ssl/
+   sudo cp /etc/letsencrypt/live/yourdomain.com/privkey.pem ./ssl/
+   ```
+
+2. **Set permissions**
+   ```bash
+   sudo chown $USER:$USER ./ssl/*
+   chmod 600 ./ssl/privkey.pem
+   ```
+
+### Environment Configuration
+
+Create production `.env.prod`:
+```env
+# Database (use strong passwords!)
+POSTGRES_USER=produser
+POSTGRES_PASSWORD=$(openssl rand -base64 32)
+POSTGRES_DB=aiproductivity_prod
+
+# Redis
+REDIS_PASSWORD=$(openssl rand -base64 32)
+
+# Security
+SECRET_KEY=$(openssl rand -hex 32)
+
+# OpenAI
+OPENAI_API_KEY=sk-your-production-key
+
+# Frontend URLs
+FRONTEND_API_URL=https://yourdomain.com/api
+FRONTEND_WS_URL=wss://yourdomain.com/ws
+
+# CORS
+CORS_ORIGINS=["https://yourdomain.com"]
+```
+
+### Deploy to Production
+
 ```bash
-git clone <repository-url>
-cd ai-productivity-app
+# Deploy with production config
+docker-compose -f docker-compose.prod.yml --env-file .env.prod up -d
+
+# Check logs
+docker-compose -f docker-compose.prod.yml logs -f
+
+# Scale if needed
+docker-compose -f docker-compose.prod.yml up -d --scale backend=3
 ```
 
-### 2. Launch the Application
+### Database Encryption
+
+For production, enable encryption at rest:
+
+**PostgreSQL on AWS RDS:**
+- Enable encryption when creating the instance
+- Use AWS KMS for key management
+
+**Self-hosted PostgreSQL:**
 ```bash
-docker-compose up -d
+# Install PostgreSQL TDE extension
+# Configure in postgresql.conf:
+shared_preload_libraries = 'pg_tde'
+pg_tde.keyring_type = 'file'
+pg_tde.keyring_file_path = '/secure/keys/pg_tde_keyring'
 ```
 
-# 🎉  After the images finish building, the application will be available at:
-- **Frontend**: http://localhost:3000
-- **Backend API**: http://localhost:8000
-- **API Documentation**: http://localhost:8000/docs
+## API Documentation
 
-### 3. Create Your Account
-1. Navigate to http://localhost:3000
-2. Click "Sign up" to create the first (and only) user account
-3. Complete the registration form
-4. Sign in with your credentials
+Interactive API documentation available at:
+- Swagger UI: `/api/docs`
+- ReDoc: `/api/redoc`
 
-## Development
+### Key Endpoints
 
-### Backend Development
+- `POST /auth/register` - Register (single user only)
+- `POST /auth/login` - Login
+- `GET /projects` - List projects
+- `POST /projects/{id}/documents` - Upload document
+- `GET /threads` - List chat threads
+- `GET /search` - Unified search
+
+## Maintenance
+
+### Backup
+
 ```bash
-cd backend
-pip install -r requirements.txt
-uvicorn app.main:app --reload
+# Database backup
+docker-compose exec postgres pg_dump -U $POSTGRES_USER $POSTGRES_DB | \
+  gzip > backup_$(date +%Y%m%d_%H%M%S).sql.gz
+
+# Full data backup
+docker run --rm -v aiproductivity_postgres_data:/data \
+  -v $(pwd):/backup alpine tar czf /backup/data_backup.tar.gz /data
 ```
 
-### Frontend Development
+### Monitoring
+
+- Health check: `GET /api/health`
+- Metrics: Monitor via `docker stats`
+- Logs: `docker-compose logs -f [service]`
+
+### Updates
+
 ```bash
-cd frontend
-npm install
-npm run dev
-```
+# Pull latest changes
+git pull origin main
 
-### Database Migrations
-```bash
-cd backend
-alembic upgrade head
-```
-
-To create a new migration:
-```bash
-alembic revision --autogenerate -m "Description of changes"
-```
-
-## Project Structure
-
-```
-ai-productivity-app/
-├── backend/                 # FastAPI backend
-│   ├── app/
-│   │   ├── core/           # Core configuration and database
-│   │   ├── models/         # SQLAlchemy models
-│   │   ├── routes/         # API endpoints
-│   │   ├── services/       # Business logic
-│   │   └── dependencies/   # FastAPI dependencies
-│   ├── alembic/            # Database migrations
-│   └── requirements.txt
-├── frontend/               # React frontend
-│   ├── src/
-│   │   ├── components/     # React components
-│   │   ├── pages/          # Page components
-│   │   ├── stores/         # Zustand stores
-│   │   ├── types/          # TypeScript types
-│   │   └── utils/          # Utility functions
-│   └── package.json
-└── docker-compose.yml      # Container orchestration
+# Rebuild and restart
+docker-compose -f docker-compose.prod.yml build
+docker-compose -f docker-compose.prod.yml up -d
 ```
 
 ## Security Considerations
 
-- **Single-User Enforcement**: Registration is automatically disabled after the first user is created
-- **Password Security**: Passwords are hashed using bcrypt with automatic salt generation
-- **JWT Security**: Tokens are stored in httpOnly cookies with secure flags
-- **Rate Limiting**: Login attempts are rate-limited to prevent brute force attacks
-- **Input Validation**: All inputs are validated both client and server-side
-- **HTTPS Ready**: Application is configured for SSL/TLS in production
+1. **Environment Variables**
+   - Never commit `.env` files
+   - Use strong, unique passwords
+   - Rotate keys regularly
 
-## Next Steps (Phase 2)
+2. **Network Security**
+   - Use firewall rules (allow only 80/443)
+   - Enable fail2ban for SSH
+   - Regular security updates
 
-The next phase will implement:
-- Project management system
-- Empty state dashboard with project templates
-- Activity logging and timeline
-- Project creation and organization workflows
+3. **Data Protection**
+   - Enable database encryption
+   - Regular automated backups
+   - Test restore procedures
 
-## Contributing
+4. **Application Security**
+   - Rate limiting enabled
+   - CORS properly configured
+   - Security headers in Nginx
 
-1. Follow the existing code style and patterns
-2. Add appropriate tests for new features
-3. Update documentation as needed
-4. Ensure all linting and type checks pass
+## Troubleshooting
+
+### Common Issues
+
+**WebSocket Connection Failed**
+- Check Nginx upgrade headers
+- Verify CORS includes your domain
+- Check firewall allows WebSocket
+
+**Database Connection Error**
+- Verify PostgreSQL is running: `docker-compose ps`
+- Check credentials in `.env`
+- Ensure database exists
+
+**Search Not Working**
+- Check ChromaDB container logs (currently disabled)
+- Verify collections are created
+- Rebuild vector indices if needed
+
+**High Memory Usage**
+- Adjust Docker memory limits
+- Reduce ChromaDB cache size
+- Scale horizontally instead
+
+## Performance Tuning
+
+### PostgreSQL
+```sql
+-- Adjust in postgresql.conf
+shared_buffers = 256MB
+effective_cache_size = 1GB
+maintenance_work_mem = 64MB
+```
+
+### Redis
+```conf
+# In redis.conf
+maxmemory 512mb
+maxmemory-policy allkeys-lru
+```
+
+### Application
+- Enable response caching
+- Optimize vector search parameters
+- Use connection pooling
 
 ## License
 
-This project is private and proprietary.
+[Your License Here]
+
+## Support
+
+For issues and questions:
+- GitHub Issues: [repository-url]/issues
+- Documentation: [repository-url]/wiki

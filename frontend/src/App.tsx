@@ -9,6 +9,7 @@ import {
   ChatsPage,
   ComponentsShowcasePage,
 } from '@/pages';
+import SearchResults from './pages/SearchResults';
 import { ToastProvider } from '@/components/ui';
 
 function App() {
@@ -99,6 +100,16 @@ function App() {
             <ProtectedRoute>
               <AppLayout>
                 <ComponentsShowcasePage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/search"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <SearchResults />
               </AppLayout>
             </ProtectedRoute>
           }

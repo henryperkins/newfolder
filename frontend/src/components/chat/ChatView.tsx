@@ -73,7 +73,7 @@ const ChatView: React.FC<ChatViewProps> = ({ projectId, threadId, onThreadChange
   // Handle initial message from URL parameters (for new chats)
   useEffect(() => {
     const initialMessage = searchParams.get('message');
-    if (initialMessage && (threadId === 'new' || !threadId)) {
+    if (initialMessage && (threadId === 'new' || !threadId) && !activeThreadId) {
       // Auto-send the initial message when starting a new chat
       handleSend(initialMessage);
       // Clear the URL parameter after sending
@@ -82,7 +82,7 @@ const ChatView: React.FC<ChatViewProps> = ({ projectId, threadId, onThreadChange
       const queryString = newSearchParams.toString();
       navigate(`/projects/${projectId}/chat/new${queryString ? `?${queryString}` : ''}`, { replace: true });
     }
-  }, [searchParams, threadId, projectId, navigate]);
+  }, [searchParams, threadId, projectId, navigate, activeThreadId]);
 
   // Auto-scroll behaviour
   useEffect(() => {
@@ -143,9 +143,9 @@ const ChatView: React.FC<ChatViewProps> = ({ projectId, threadId, onThreadChange
   }, []);
 
   // Ensure thread exists before sending first message
-  const ensureThread = async (): Promise<string> => {
+  const ensureThread = async (initialMessage?: string): Promise<string> => {
     if (activeThreadId) return activeThreadId;
-    const thread = await createThread(projectId);
+    const thread = await createThread(projectId, initialMessage);
     onThreadChange?.(thread.id);
     navigate(`/projects/${projectId}/chat/${thread.id}`);
     return thread.id;
@@ -153,7 +153,7 @@ const ChatView: React.FC<ChatViewProps> = ({ projectId, threadId, onThreadChange
 
   // Send message handler
   const handleSend = async (content: string) => {
-    const thId = await ensureThread();
+    const thId = await ensureThread(content);
     await sendMessage(content);
     wsSendMessage({ type: MessageType.SEND_MESSAGE, thread_id: thId, content });
   };
