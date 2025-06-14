@@ -1,7 +1,6 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Plus, FolderOpen, Settings, MessageSquare, Menu } from 'lucide-react';
-import { useUiStore } from '@/stores';
 import { cn } from '@/utils';
 import { UserProfile } from './UserProfile';
 

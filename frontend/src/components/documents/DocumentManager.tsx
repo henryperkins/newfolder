@@ -7,7 +7,6 @@ import { Card, Button } from '@/components/common';
 import { DocumentUploader } from './DocumentUploader';
 import { DocumentItem } from './DocumentItem';
 import { VersionHistory } from './VersionHistory';
-import { cn } from '@/utils';
 
 export const DocumentManager: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();

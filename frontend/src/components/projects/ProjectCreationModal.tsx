@@ -132,8 +132,14 @@ export const ProjectCreationModal: React.FC<ProjectCreationModalProps> = ({
       const project = await createProject(projectData);
       onSuccess(project.id);
       handleClose();
-    } catch (err: any) {
-      const message = err.response?.data?.detail || 'Failed to create project. Please try again.';
+    } catch (err: unknown) {
+      const message = err instanceof Error && 'response' in err &&
+        typeof err.response === 'object' && err.response &&
+        'data' in err.response &&
+        typeof err.response.data === 'object' && err.response.data &&
+        'detail' in err.response.data
+        ? String(err.response.data.detail)
+        : 'Failed to create project. Please try again.';
       setError(message);
     } finally {
       setIsSubmitting(false);
@@ -171,7 +177,7 @@ export const ProjectCreationModal: React.FC<ProjectCreationModalProps> = ({
           {template && (
             <div className="mb-6 p-4 bg-gray-50 rounded-lg">
               <div className="flex items-center gap-3 mb-2">
-                <div 
+                <div
                   className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm font-semibold"
                   style={{ backgroundColor: template.color }}
                 >
@@ -249,7 +255,7 @@ export const ProjectCreationModal: React.FC<ProjectCreationModalProps> = ({
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Tags
               </label>
-              
+
               {/* Current Tags */}
               {currentTags.length > 0 && (
                 <div className="flex flex-wrap gap-2 mb-3">

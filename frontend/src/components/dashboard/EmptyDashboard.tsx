@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { cn } from '@/utils';
 import { useProjectStore } from '@/stores';
 import { ExamplePrompt, ProjectTemplate } from '@/types';
 import { Button, Card } from '@/components/common';
@@ -50,15 +49,15 @@ export const EmptyDashboard: React.FC<EmptyDashboardProps> = ({
   const [selectedTemplate, setSelectedTemplate] = useState<ProjectTemplate | null>(null);
   const [showCreateProjectModal, setShowCreateProjectModal] = useState(false);
 
-  const { 
-    templates, 
-    isLoadingTemplates, 
-    fetchTemplates 
+  const {
+    templates,
+    isLoadingTemplates,
+    fetchTemplates
   } = useProjectStore();
 
   useEffect(() => {
     fetchTemplates();
-  }, []);
+  }, [fetchTemplates]);
 
   const handleChatSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -106,7 +105,7 @@ export const EmptyDashboard: React.FC<EmptyDashboardProps> = ({
               Organize Your Work with Projects
             </h1>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Create focused workspaces for your ideas, research, and tasks. 
+              Create focused workspaces for your ideas, research, and tasks.
               Keep everything organized and easily searchable.
             </p>
           </div>
@@ -128,10 +127,10 @@ export const EmptyDashboard: React.FC<EmptyDashboardProps> = ({
               Or start with a quick chat
             </h3>
             <p className="text-gray-600">
-              Begin a conversation and we'll help you organize it into a project
+              Begin a conversation and we&apos;ll help you organize it into a project
             </p>
           </div>
-          
+
           <form onSubmit={handleChatSubmit} className="max-w-xl mx-auto">
             <div className="flex gap-3">
               <input
@@ -187,7 +186,7 @@ export const EmptyDashboard: React.FC<EmptyDashboardProps> = ({
         onCreateNew={handleCreateFirstProject}
         initialMessage={chatInput}
       />
-      
+
       <ProjectCreationModal
         isOpen={showCreateProjectModal}
         onClose={() => {

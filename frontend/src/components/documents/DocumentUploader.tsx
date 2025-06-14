@@ -5,6 +5,11 @@ import { useDocumentStore } from '@/stores/documentStore';
 import { Button } from '@/components/common';
 import { cn, formatFileSize } from '@/utils';
 
+interface RejectedFile {
+  file: File;
+  errors: Array<{ code: string; message: string }>;
+}
+
 interface DocumentUploaderProps {
   projectId: string;
   onClose?: () => void;
@@ -20,12 +25,12 @@ export const DocumentUploader: React.FC<DocumentUploaderProps> = ({
 
   const { uploadDocument, uploadProgress } = useDocumentStore();
 
-  const onDrop = useCallback((acceptedFiles: File[], rejectedFiles: any[]) => {
+  const onDrop = useCallback((acceptedFiles: File[], rejectedFiles: RejectedFile[]) => {
     setFiles(prev => [...prev, ...acceptedFiles]);
 
     // Handle rejected files
     const newErrors: Record<string, string> = {};
-    rejectedFiles.forEach((file: any) => {
+    rejectedFiles.forEach((file: RejectedFile) => {
       const error = file.errors[0];
       if (error.code === 'file-too-large') {
         newErrors[file.file.name] = 'File size exceeds 50MB limit';

@@ -41,8 +41,14 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
     try {
       await authApi.forgotPassword(data);
       setIsSuccess(true);
-    } catch (err: any) {
-      const message = err.response?.data?.detail || 'Failed to send reset email. Please try again.';
+    } catch (err: unknown) {
+      const message = err instanceof Error && 'response' in err &&
+        typeof err.response === 'object' && err.response &&
+        'data' in err.response &&
+        typeof err.response.data === 'object' && err.response.data &&
+        'detail' in err.response.data
+        ? String(err.response.data.detail)
+        : 'Failed to send reset email. Please try again.';
       setError(message);
     } finally {
       setIsLoading(false);
@@ -80,7 +86,7 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
               Check your email
             </h3>
             <p className="text-gray-600">
-              If an account with that email exists, we've sent you a password reset link.
+              If an account with that email exists, we&#39;ve sent you a password reset link.
             </p>
             <Button onClick={handleClose} className="w-full">
               Done
@@ -96,7 +102,7 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
 
             <div>
               <p className="text-gray-600 text-sm mb-4">
-                Enter your email address and we'll send you a link to reset your password.
+                Enter your email address and we&#39;ll send you a link to reset your password.
               </p>
               <Input
                 {...register('email')}

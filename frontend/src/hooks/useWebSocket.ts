@@ -17,7 +17,7 @@ export interface UseWebSocketOptions {
   token?: string;                           // JWT (optional)
   reconnectAttempts?: number;               // default 5
   heartbeatInterval?: number;               // ms, default 30 000
-  onMessage?: (msg: any) => void;           // custom handler invoked after internal processing
+  onMessage?: (msg: unknown) => void;       // custom handler invoked after internal processing
 }
 
 export interface WebSocketHandle {
@@ -43,14 +43,14 @@ export const useWebSocket = ({
   // -------------------------------------------------------------
   // Internal helpers
   // -------------------------------------------------------------
-  const startHeartbeat = () => {
+  const startHeartbeat = useCallback(() => {
     if (heartbeatTimer.current) clearInterval(heartbeatTimer.current);
     heartbeatTimer.current = window.setInterval(() => {
       if (wsRef.current?.readyState === WebSocket.OPEN) {
         wsRef.current.send(JSON.stringify({ type: 'heartbeat', timestamp: Date.now() }));
       }
     }, heartbeatInterval);
-  };
+  }, [heartbeatInterval]);
 
   const cleanup = () => {
     if (heartbeatTimer.current) clearInterval(heartbeatTimer.current);
@@ -95,34 +95,38 @@ export const useWebSocket = ({
 
     ws.onmessage = (evt) => {
       try {
-        const msg = JSON.parse(evt.data);
-        handleIncomingMessage(msg);
+        const parsedMsg = JSON.parse(evt.data as string);
+        handleIncomingMessage(parsedMsg);
       } catch {
         // ignore malformed
       }
     };
-  }, [url, token, reconnectAttempts, heartbeatInterval]);
+  }, [url, token, reconnectAttempts, heartbeatInterval, startHeartbeat, handleIncomingMessage]);
 
-  const handleIncomingMessage = (msg: any) => {
-    switch (msg.type) {
-      case 'new_message':
-        store.streamMessage(msg.message as ChatMessage);
-        break;
-      case 'assistant_message_start':
-        // placeholder assistant message already created in ChatService – nothing to do
-        break;
-      case 'stream_chunk':
-        store.addStreamChunk(msg.message_id, msg.chunk, msg.is_final);
-        break;
-      case 'message_updated':
-        store.editMessage(msg.message.id, msg.message.content).catch(() => {});
-        break;
-      case 'message_deleted':
-        store.deleteMessage(msg.message_id).catch(() => {});
-        break;
-      default:
-        // ignore
-        break;
+  const handleIncomingMessage = useCallback((msg: unknown) => {
+    // Consider defining a more specific type for msg if its structure is known
+    if (typeof msg === 'object' && msg !== null && 'type' in msg) {
+      const message = msg as { type: string; [key: string]: any };
+      switch (message.type) {
+        case 'new_message':
+          store.streamMessage(message.message as ChatMessage);
+          break;
+        case 'assistant_message_start':
+          // placeholder assistant message already created in ChatService – nothing to do
+          break;
+        case 'stream_chunk':
+          store.addStreamChunk(message.message_id, message.chunk, message.is_final);
+          break;
+        case 'message_updated':
+          store.editMessage(message.message.id, message.message.content).catch(() => {});
+          break;
+        case 'message_deleted':
+          store.deleteMessage(message.message_id).catch(() => {});
+          break;
+        default:
+          // ignore
+          break;
+      }
     }
 
     if (onMessage) {
@@ -132,7 +136,7 @@ export const useWebSocket = ({
         // swallow errors from user handler
       }
     }
-  };
+  }, [store, onMessage]);
 
   // -------------------------------------------------------------
   // Lifecycle
@@ -144,7 +148,6 @@ export const useWebSocket = ({
     return () => {
       cleanup();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connect, url]);
 
   // -------------------------------------------------------------

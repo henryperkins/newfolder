@@ -2,7 +2,7 @@ import { api } from './api';
 import {
   Document,
   DocumentVersion,
-  DocumentUploadProgress
+  // DocumentUploadProgress // Removed, not used
 } from '@/types/document';
 
 export const documentApi = {

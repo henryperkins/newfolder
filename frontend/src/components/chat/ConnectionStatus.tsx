@@ -1,6 +1,6 @@
 import React from 'react';
 import { WebSocketStatus } from '../../types/websocket';
-import { Wifi, WifiOff, RefreshCw } from 'lucide-react';
+import { WifiOff, RefreshCw } from 'lucide-react';
 import styles from './ConnectionStatus.module.css';
 
 interface Props {

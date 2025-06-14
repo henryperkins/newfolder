@@ -1,25 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Grid, 
-  List, 
-  Plus, 
-  Search, 
-  Filter, 
-  SortAsc, 
-  SortDesc 
+import {
+  Grid,
+  List,
+  Plus,
+  Search,
+  Filter,
+  SortAsc,
+  SortDesc
 } from 'lucide-react';
+import cn from 'clsx';
 import { useProjectStore } from '@/stores';
 import { Project, ProjectsQueryParams } from '@/types';
 import { Button } from '@/components/common';
 import { ProjectCard } from './ProjectCard';
 import { ProjectCreationModal } from './ProjectCreationModal';
 import { EmptyDashboard } from '@/components/dashboard';
-import { cn } from '@/utils';
 
 export const ProjectsView: React.FC = () => {
   const navigate = useNavigate();
-  
+
   const [searchQuery, setSearchQuery] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
@@ -107,7 +107,7 @@ export const ProjectsView: React.FC = () => {
             Manage your workspaces and organize your content
           </p>
         </div>
-        
+
         <Button
           onClick={() => setShowCreateModal(true)}
           className="flex items-center gap-2"
@@ -170,12 +170,12 @@ export const ProjectsView: React.FC = () => {
           >
             Name
             {projectFilters.sort_by === 'name' && (
-              projectFilters.order === 'desc' ? 
-              <SortDesc className="w-3 h-3" /> : 
+              projectFilters.order === 'desc' ?
+              <SortDesc className="w-3 h-3" /> :
               <SortAsc className="w-3 h-3" />
             )}
           </button>
-          
+
           <button
             onClick={() => handleSortChange('updated')}
             className={cn(
@@ -187,8 +187,8 @@ export const ProjectsView: React.FC = () => {
           >
             Updated
             {projectFilters.sort_by === 'updated' && (
-              projectFilters.order === 'desc' ? 
-              <SortDesc className="w-3 h-3" /> : 
+              projectFilters.order === 'desc' ?
+              <SortDesc className="w-3 h-3" /> :
               <SortAsc className="w-3 h-3" />
             )}
           </button>
@@ -204,8 +204,8 @@ export const ProjectsView: React.FC = () => {
           >
             Created
             {projectFilters.sort_by === 'created' && (
-              projectFilters.order === 'desc' ? 
-              <SortDesc className="w-3 h-3" /> : 
+              projectFilters.order === 'desc' ?
+              <SortDesc className="w-3 h-3" /> :
               <SortAsc className="w-3 h-3" />
             )}
           </button>
@@ -305,7 +305,7 @@ export const ProjectsView: React.FC = () => {
                 No projects found
               </h3>
               <p className="text-gray-600 mb-6">
-                {searchQuery 
+                {searchQuery
                   ? `No projects match "${searchQuery}"`
                   : 'Get started by creating your first project'
                 }
@@ -347,14 +347,14 @@ export const ProjectsView: React.FC = () => {
 
 interface ProjectListItemProps {
   project: Project;
-  onEdit: (project: Project) => void;
-  onDelete: (projectId: string) => void;
+  onEdit: (_project: Project) => void;
+  onDelete: (_projectId: string) => void;
 }
 
 const ProjectListItem: React.FC<ProjectListItemProps> = ({
   project,
-  onEdit,
-  onDelete
+  onEdit: _onEdit,
+  onDelete: _onDelete
 }) => {
   const navigate = useNavigate();
 
@@ -376,7 +376,7 @@ const ProjectListItem: React.FC<ProjectListItemProps> = ({
           className="w-3 h-3 rounded-full flex-shrink-0"
           style={{ backgroundColor: project.color }}
         />
-        
+
         <div className="flex-1 min-w-0">
           <h3 className="font-medium text-gray-900 truncate">
             {project.name}
@@ -398,9 +398,9 @@ const ProjectListItem: React.FC<ProjectListItemProps> = ({
               )}
             </div>
           )}
-          
+
           <span>{formatDate(project.last_activity_at)}</span>
-          
+
           <div className="flex gap-4">
             <span>{project.stats?.chat_count || 0} chats</span>
             <span>{project.stats?.document_count || 0} docs</span>

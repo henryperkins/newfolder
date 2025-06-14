@@ -17,7 +17,7 @@ const StreamingText: React.FC<StreamingTextProps> = ({
 }) => {
   const [displayed, setDisplayed] = useState('');
   const indexRef = useRef(0);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (isComplete) {
@@ -28,10 +28,10 @@ const StreamingText: React.FC<StreamingTextProps> = ({
     }
 
     const interval = 1000 / speed;
-    timerRef.current = setInterval(() => {
+    timerRef.current = window.setInterval(() => {
       indexRef.current += 1;
       if (indexRef.current >= text.length) {
-        clearInterval(timerRef.current!);
+        clearInterval(timerRef.current as number);
         setDisplayed(text);
         onComplete?.();
       } else {

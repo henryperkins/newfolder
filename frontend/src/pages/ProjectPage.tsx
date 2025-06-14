@@ -27,7 +27,7 @@ export const ProjectPage: React.FC = () => {
     projects,
     setSelectedProject,
     selectedProject,
-    updateProject,
+    // updateProject, // Removed, not used
   } = useProjectStore();
 
   const [isLoading, setIsLoading] = useState(true);
@@ -60,11 +60,10 @@ export const ProjectPage: React.FC = () => {
       }
     };
     loadProject();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId]);
+  }, [projectId, projects, setSelectedProject, setIsLoading, setError]);
 
   // -------------------------------------------------------------------
-  // WebSocket – listen for document status updates                      
+  // WebSocket – listen for document status updates
   // -------------------------------------------------------------------
 
   const { handleDocumentStatusUpdate } = useDocumentStore();

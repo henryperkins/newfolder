@@ -17,7 +17,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     const checkAuth = async () => {
       if (hasCheckedRef.current) return;
       hasCheckedRef.current = true;
-      
+
       if (isAuthenticated && user) {
         setIsLoading(false);
         return;
@@ -26,7 +26,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
       try {
         const currentUser = await authApi.getCurrentUser();
         setUser(currentUser);
-      } catch (error) {
+      } catch {
         setUser(null);
       } finally {
         setIsLoading(false);
@@ -34,7 +34,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     };
 
     checkAuth();
-  }, []);
+  }, [isAuthenticated, setUser, user]);
 
   if (isLoading) {
     return (

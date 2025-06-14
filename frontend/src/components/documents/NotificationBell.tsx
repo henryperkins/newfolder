@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Bell, FileText, CheckCircle, AlertCircle, X } from 'lucide-react';
+import { Bell, FileText, CheckCircle, AlertCircle } from 'lucide-react';
 import { useDocumentStore } from '@/stores/documentStore';
 import { cn, formatRelativeTime } from '@/utils';
 

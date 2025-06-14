@@ -101,7 +101,6 @@ export const projectApi = {
 import type {
   ChatThread,
   ChatMessage,
-  ThreadsResponse,
   MessagesResponse,
 } from '../types/chat';
 

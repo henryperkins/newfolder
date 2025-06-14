@@ -6,7 +6,7 @@ import { User, Lock } from 'lucide-react';
 import { Button, Input, Card } from '@/components/common';
 import { useAuthStore } from '@/stores';
 import { authApi } from '@/utils';
-import { UpdateUserRequest, ChangePasswordRequest } from '@/types';
+// import { UpdateUserRequest, ChangePasswordRequest } from '@/types'; // Removed, not used
 
 const updateProfileSchema = z.object({
   username: z
@@ -42,7 +42,7 @@ export const SettingsPage: React.FC = () => {
   const [passwordSuccess, setPasswordSuccess] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
-  
+
   const { user, setUser } = useAuthStore();
 
   const profileForm = useForm<UpdateProfileFormData>({
@@ -67,8 +67,14 @@ export const SettingsPage: React.FC = () => {
       setUser(updatedUser);
       setProfileSuccess(true);
       setTimeout(() => setProfileSuccess(false), 3000);
-    } catch (err: any) {
-      const message = err.response?.data?.detail || 'Failed to update profile. Please try again.';
+    } catch (err: unknown) {
+      const message = err instanceof Error && 'response' in err &&
+        typeof (err as any).response === 'object' && (err as any).response &&
+        'data' in (err as any).response &&
+        typeof (err as any).response.data === 'object' && (err as any).response.data &&
+        'detail' in (err as any).response.data
+        ? String((err as any).response.data.detail)
+        : 'Failed to update profile. Please try again.';
       setProfileError(message);
     } finally {
       setIsUpdatingProfile(false);
@@ -88,8 +94,14 @@ export const SettingsPage: React.FC = () => {
       setPasswordSuccess(true);
       passwordForm.reset();
       setTimeout(() => setPasswordSuccess(false), 3000);
-    } catch (err: any) {
-      const message = err.response?.data?.detail || 'Failed to change password. Please try again.';
+    } catch (err: unknown) {
+      const message = err instanceof Error && 'response' in err &&
+        typeof (err as any).response === 'object' && (err as any).response &&
+        'data' in (err as any).response &&
+        typeof (err as any).response.data === 'object' && (err as any).response.data &&
+        'detail' in (err as any).response.data
+        ? String((err as any).response.data.detail)
+        : 'Failed to change password. Please try again.';
       setPasswordError(message);
     } finally {
       setIsChangingPassword(false);
@@ -150,7 +162,7 @@ export const SettingsPage: React.FC = () => {
                       {profileError}
                     </div>
                   )}
-                  
+
                   {profileSuccess && (
                     <div className="p-3 text-sm text-green-600 bg-green-50 border border-green-200 rounded-md">
                       Profile updated successfully!
@@ -198,7 +210,7 @@ export const SettingsPage: React.FC = () => {
                       {passwordError}
                     </div>
                   )}
-                  
+
                   {passwordSuccess && (
                     <div className="p-3 text-sm text-green-600 bg-green-50 border border-green-200 rounded-md">
                       Password changed successfully!

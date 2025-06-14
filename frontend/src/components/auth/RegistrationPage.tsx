@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Link, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, CheckCircle, XCircle } from 'lucide-react';
+import { Eye, EyeOff, XCircle } from 'lucide-react';
 import { Button, Input, Card } from '@/components/common';
 import { useAuthStore } from '@/stores';
 import { authApi } from '@/utils';
@@ -60,7 +60,7 @@ export const RegistrationPage: React.FC = () => {
       try {
         const response = await authApi.checkRegistrationAvailable();
         setRegistrationAvailable(response.available);
-      } catch (err) {
+      } catch {
         setRegistrationAvailable(false);
       }
     };
@@ -70,7 +70,7 @@ export const RegistrationPage: React.FC = () => {
 
   const getPasswordStrength = (password: string) => {
     if (!password) return { strength: 0, label: '' };
-    
+
     let score = 0;
     if (password.length >= 8) score++;
     if (/[A-Z]/.test(password)) score++;
@@ -98,8 +98,18 @@ export const RegistrationPage: React.FC = () => {
       navigate('/login', {
         state: { message: 'Account created successfully. Please sign in.' },
       });
-    } catch (err: any) {
-      const message = err.response?.data?.detail || 'Registration failed. Please try again.';
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error &&
+        'response' in err &&
+        err.response &&
+        typeof err.response === 'object' &&
+        'data' in err.response &&
+        err.response.data &&
+        typeof err.response.data === 'object' &&
+        'detail' in err.response.data
+          ? String(err.response.data.detail)
+          : 'Registration failed. Please try again.';
       setError(message);
     } finally {
       setIsLoading(false);

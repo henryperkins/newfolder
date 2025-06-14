@@ -31,7 +31,7 @@ export const SelectProjectModal: React.FC<SelectProjectModalProps> = ({
     }
   }, [isOpen, fetchProjects]);
 
-  const filteredProjects = projects.filter(project => 
+  const filteredProjects = projects.filter(project =>
     !project.is_archived &&
     project.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -67,13 +67,13 @@ export const SelectProjectModal: React.FC<SelectProjectModalProps> = ({
       e.preventDefault();
       const currentIndex = filteredProjects.findIndex(p => p.id === selectedProjectId);
       let newIndex;
-      
+
       if (e.key === 'ArrowDown') {
         newIndex = currentIndex < filteredProjects.length - 1 ? currentIndex + 1 : 0;
       } else {
         newIndex = currentIndex > 0 ? currentIndex - 1 : filteredProjects.length - 1;
       }
-      
+
       if (filteredProjects[newIndex]) {
         setSelectedProjectId(filteredProjects[newIndex].id);
       }
@@ -102,7 +102,7 @@ export const SelectProjectModal: React.FC<SelectProjectModalProps> = ({
           {initialMessage && (
             <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
               <p className="text-sm text-blue-800">
-                Starting chat: "{initialMessage}"
+                Starting chat: &quot;{initialMessage}&quot;
               </p>
             </div>
           )}

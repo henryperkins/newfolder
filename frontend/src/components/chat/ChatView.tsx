@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useChatStore } from '../../stores/chatStore';
 import { useWebSocket } from '../../hooks/useWebSocket';
 import { useAuth } from '../../hooks/useAuth';
@@ -29,7 +29,7 @@ function estimateMessageHeight(message: ChatMessage): number {
 
 const ChatView: React.FC<ChatViewProps> = ({ projectId, threadId, onThreadChange }) => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  useAuth();
 
   const {
     threads,
@@ -56,7 +56,7 @@ const ChatView: React.FC<ChatViewProps> = ({ projectId, threadId, onThreadChange
     sendMessage: wsSendMessage,
     reconnect,
   } = useWebSocket({
-    url: threadId ? `/ws/chat/${threadId}` : null,
+    url: activeThreadId ? `/ws/chat/${activeThreadId}` : null,
     onMessage: handleWebSocketMessage,
     reconnectAttempts: 5,
     heartbeatInterval: 30000,
@@ -74,28 +74,28 @@ const ChatView: React.FC<ChatViewProps> = ({ projectId, threadId, onThreadChange
     if (isAutoScroll && messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [messages.get(activeThreadId || '')?.length, streamingMessage, isAutoScroll]);
+  }, [messages, streamingMessage, isAutoScroll, activeThreadId]);
 
   // ---- WebSocket message router ----
-  function handleWebSocketMessage(data: any) {
+  function handleWebSocketMessage(data: { type: MessageType; message_id?: string; chunk?: string; is_final?: boolean; message?: ChatMessage }) {
     switch (data.type) {
       case MessageType.NEW_MESSAGE:
         // already handled via optimistic update in store
         break;
       case MessageType.ASSISTANT_MESSAGE_START:
-        useChatStore.getState().startStreaming(data.message_id);
+        if (data.message_id) useChatStore.getState().startStreaming(data.message_id);
         break;
       case MessageType.STREAM_CHUNK:
-        useChatStore.getState().addStreamChunk(data.message_id, data.chunk);
-        if (data.is_final) {
+        if (data.message_id && data.chunk) useChatStore.getState().addStreamChunk(data.message_id, data.chunk);
+        if (data.is_final && data.message_id) {
           useChatStore.getState().completeStreaming(data.message_id, ''); // content patched later
         }
         break;
       case MessageType.MESSAGE_UPDATED:
-        useChatStore.getState().updateMessageInStore(data.message);
+        if (data.message) useChatStore.getState().updateMessageInStore(data.message);
         break;
       case MessageType.MESSAGE_DELETED:
-        useChatStore.getState().removeMessageFromStore(data.message_id);
+        if (data.message_id) useChatStore.getState().removeMessageFromStore(data.message_id);
         break;
       default:
         console.warn('Unhandled WS message', data);

@@ -7,7 +7,6 @@ import { Eye, EyeOff } from 'lucide-react';
 import { Button, Input, Card } from '@/components/common';
 import { useAuthStore } from '@/stores';
 import { authApi } from '@/utils';
-import { LoginRequest } from '@/types';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email format'),
@@ -45,8 +44,18 @@ export const LoginPage: React.FC = () => {
       const response = await authApi.login(data);
       setUser(response.user);
       navigate('/dashboard');
-    } catch (err: any) {
-      const message = err.response?.data?.detail || 'Login failed. Please try again.';
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error &&
+        'response' in err &&
+        err.response &&
+        typeof err.response === 'object' &&
+        'data' in err.response &&
+        err.response.data &&
+        typeof err.response.data === 'object' &&
+        'detail' in err.response.data
+          ? String(err.response.data.detail)
+          : 'Login failed. Please try again.';
       setError(message);
     } finally {
       setIsLoading(false);
@@ -131,7 +140,7 @@ export const LoginPage: React.FC = () => {
 
             <div className="text-center">
               <span className="text-sm text-gray-600">
-                Don't have an account?{' '}
+                Don&#39;t have an account?{' '}
                 <Link
                   to="/register"
                   className="text-primary-600 hover:text-primary-500 font-medium"

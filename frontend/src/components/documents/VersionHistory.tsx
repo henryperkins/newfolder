@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { X, Clock, FileText, RotateCcw } from 'lucide-react';
 import { useDocumentStore } from '@/stores/documentStore';
 import { DocumentVersion } from '@/types/document';
@@ -21,11 +21,7 @@ export const VersionHistory: React.FC<VersionHistoryProps> = ({
   const { documents, fetchVersions, revertToVersion } = useDocumentStore();
   const document = documents.get(documentId);
 
-  useEffect(() => {
-    loadVersions();
-  }, [documentId]);
-
-  const loadVersions = async () => {
+  const loadVersions = useCallback(async () => {
     setIsLoading(true);
     try {
       const versionList = await fetchVersions(documentId);
@@ -34,7 +30,11 @@ export const VersionHistory: React.FC<VersionHistoryProps> = ({
       console.error('Failed to load versions:', error);
     }
     setIsLoading(false);
-  };
+  }, [documentId, fetchVersions]);
+
+  useEffect(() => {
+    loadVersions();
+  }, [loadVersions]);
 
   const handleRevert = async (versionId: string) => {
     if (!window.confirm('Are you sure you want to revert to this version? This will create a new version.')) {
@@ -82,7 +82,7 @@ export const VersionHistory: React.FC<VersionHistoryProps> = ({
             </div>
           ) : (
             <div className="space-y-4">
-              {versions.map((version, index) => {
+              {versions.map((version, _index) => {
                 const isCurrent = document?.current_version_id === version.id;
 
                 return (

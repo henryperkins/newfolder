@@ -17,7 +17,7 @@ export const Tooltip: React.FC<TooltipProps> = ({
   delay = 500,
 }) => {
   const [isVisible, setIsVisible] = useState(false);
-  const timeoutRef = useRef<NodeJS.Timeout>();
+  const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
   const showTooltip = () => {
     timeoutRef.current = setTimeout(() => {
@@ -55,7 +55,7 @@ export const Tooltip: React.FC<TooltipProps> = ({
       onBlur={hideTooltip}
     >
       {children}
-      
+
       {isVisible && (
         <div
           className={cn(

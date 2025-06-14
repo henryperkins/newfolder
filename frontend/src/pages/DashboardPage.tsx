@@ -9,7 +9,7 @@ export const DashboardPage: React.FC = () => {
 
   useEffect(() => {
     fetchProjects();
-  }, []);
+  }, [fetchProjects]);
 
   const handleProjectCreated = (projectId: string) => {
     navigate(`/projects/${projectId}`);

@@ -71,8 +71,18 @@ export const ResetPasswordPage: React.FC = () => {
         new_password: data.newPassword,
       });
       setIsSuccess(true);
-    } catch (err: any) {
-      const message = err.response?.data?.detail || 'Failed to reset password. Please try again.';
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error &&
+        'response' in err &&
+        err.response &&
+        typeof err.response === 'object' &&
+        'data' in err.response &&
+        err.response.data &&
+        typeof err.response.data === 'object' &&
+        'detail' in err.response.data
+          ? String(err.response.data.detail)
+          : 'Failed to reset password. Please try again.';
       setError(message);
     } finally {
       setIsLoading(false);

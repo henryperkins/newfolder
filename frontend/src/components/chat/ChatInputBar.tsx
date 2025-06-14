@@ -6,7 +6,7 @@ import styles from './ChatInputBar.module.css';
 
 interface Props {
   projectId: string;
-  onSend: (text: string, files?: File[]) => void;
+  onSend: (_text: string, _files?: File[]) => void;
   onTyping?: () => void;
   isDisabled?: boolean;
   placeholder?: string;
@@ -63,8 +63,9 @@ const ChatInputBar: React.FC<Props> = ({
   const send = () => {
     const value = text.trim();
     if (!value) return;
-    onSend(value);
+    onSend(value, attachedFile ? [attachedFile] : undefined);
     setText('');
+    setAttachedFile(null);
     setShowSuggestions(false);
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
   };

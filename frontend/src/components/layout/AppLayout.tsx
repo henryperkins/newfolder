@@ -20,7 +20,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
 
     window.addEventListener('keydown', handleKeydown);
     return () => window.removeEventListener('keydown', handleKeydown);
-  }, []);
+  }, [toggleSidebar]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -33,7 +33,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     handleResize(); // Check on mount
 
     return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  }, [setSidebarCollapsed]);
 
   return (
     <div className="flex h-screen bg-gray-50">
