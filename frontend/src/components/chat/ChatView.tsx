@@ -77,28 +77,44 @@ const ChatView: React.FC<ChatViewProps> = ({ projectId, threadId, onThreadChange
   }, [messages, streamingMessage, isAutoScroll, activeThreadId]);
 
   // ---- WebSocket message router ----
-  function handleWebSocketMessage(data: { type: MessageType; message_id?: string; chunk?: string; is_final?: boolean; message?: ChatMessage }) {
-    switch (data.type) {
-      case MessageType.NEW_MESSAGE:
-        // already handled via optimistic update in store
-        break;
-      case MessageType.ASSISTANT_MESSAGE_START:
-        if (data.message_id) useChatStore.getState().startStreaming(data.message_id);
-        break;
-      case MessageType.STREAM_CHUNK:
-        if (data.message_id && data.chunk) useChatStore.getState().addStreamChunk(data.message_id, data.chunk);
-        if (data.is_final && data.message_id) {
-          useChatStore.getState().completeStreaming(data.message_id, ''); // content patched later
-        }
-        break;
-      case MessageType.MESSAGE_UPDATED:
-        if (data.message) useChatStore.getState().updateMessageInStore(data.message);
-        break;
-      case MessageType.MESSAGE_DELETED:
-        if (data.message_id) useChatStore.getState().removeMessageFromStore(data.message_id);
-        break;
-      default:
-        console.warn('Unhandled WS message', data);
+  function handleWebSocketMessage(msg: unknown) {
+    // Type guard to ensure msg is an object and has a 'type' property
+    if (typeof msg === 'object' && msg !== null && 'type' in msg) {
+      // Cast to a more specific type, assuming structure based on original function
+      const data = msg as {
+        type: MessageType;
+        message_id?: string;
+        chunk?: string;
+        is_final?: boolean;
+        message?: ChatMessage;
+      };
+
+      switch (data.type) {
+        case MessageType.NEW_MESSAGE:
+          // already handled via optimistic update in store
+          break;
+        case MessageType.ASSISTANT_MESSAGE_START:
+          if (data.message_id) useChatStore.getState().startStreaming(data.message_id);
+          break;
+        case MessageType.STREAM_CHUNK:
+          if (data.message_id && data.chunk !== undefined) {
+            useChatStore.getState().addStreamChunk(data.message_id, data.chunk);
+          }
+          if (data.is_final && data.message_id) {
+            useChatStore.getState().completeStreaming(data.message_id, '');
+          }
+          break;
+        case MessageType.MESSAGE_UPDATED:
+          if (data.message) useChatStore.getState().updateMessageInStore(data.message);
+          break;
+        case MessageType.MESSAGE_DELETED:
+          if (data.message_id) useChatStore.getState().removeMessageFromStore(data.message_id);
+          break;
+        default:
+          console.warn('Unhandled WS message', data);
+      }
+    } else {
+      console.warn('Received WS message with unexpected structure', msg);
     }
   }
 

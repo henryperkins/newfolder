@@ -58,6 +58,56 @@ export const useWebSocket = ({
     wsRef.current = null;
   };
 
+  const handleIncomingMessage = useCallback((msg: unknown) => {
+    // Consider defining a more specific type for msg if its structure is known
+    if (typeof msg === 'object' && msg !== null && 'type' in msg) {
+      const message = msg as { type: string; message_id?: unknown; chunk?: unknown; is_final?: unknown; message?: unknown };
+      switch (message.type) {
+        case 'new_message':
+          // Assuming message.message is of type ChatMessage or compatible
+          store.streamMessage(message.message as ChatMessage);
+          break;
+        case 'assistant_message_start':
+          // placeholder assistant message already created in ChatService – nothing to do
+          break;
+        case 'stream_chunk':
+          if (message.message_id && typeof message.chunk === 'string') {
+            store.addStreamChunk(
+              message.message_id as string,
+              message.chunk,
+              message.is_final as boolean | undefined
+            );
+          }
+          break;
+        case 'message_updated':
+          if (
+            message.message && typeof message.message === 'object' &&
+            'id' in message.message && 'content' in message.message
+          ) {
+            store.editMessage(
+              (message.message as { id: string }).id,
+              (message.message as { content: string }).content
+            ).catch(() => {});
+          }
+          break;
+        case 'message_deleted':
+          store.deleteMessage(message.message_id as string).catch(() => {});
+          break;
+        default:
+          // ignore
+          break;
+      }
+    }
+
+    if (onMessage) {
+      try {
+        onMessage(msg);
+      } catch {
+        // swallow errors from user handler
+      }
+    }
+  }, [store, onMessage]);
+
   const connect = useCallback(() => {
     if (!url) return; // nothing to do when url is null
 
@@ -103,48 +153,6 @@ export const useWebSocket = ({
     };
   }, [url, token, reconnectAttempts, heartbeatInterval, startHeartbeat, handleIncomingMessage]);
 
-  const handleIncomingMessage = useCallback((msg: unknown) => {
-    // Consider defining a more specific type for msg if its structure is known
-    if (typeof msg === 'object' && msg !== null && 'type' in msg) {
-      const message = msg as { type: string; [key: string]: unknown };
-      switch (message.type) {
-        case 'new_message':
-          store.streamMessage(message.message as ChatMessage);
-          break;
-        case 'assistant_message_start':
-          // placeholder assistant message already created in ChatService – nothing to do
-          break;
-        case 'stream_chunk':
-          store.addStreamChunk(message.message_id as string, message.chunk, message.is_final);
-          break;
-        case 'message_updated':
-          if (
-            message.message && typeof message.message === 'object' &&
-            'id' in message.message && 'content' in message.message
-          ) {
-            store.editMessage(
-              (message.message as { id: string }).id,
-              (message.message as { content: string }).content
-            ).catch(() => {});
-          }
-          break;
-        case 'message_deleted':
-          store.deleteMessage(message.message_id as string).catch(() => {});
-          break;
-        default:
-          // ignore
-          break;
-      }
-    }
-
-    if (onMessage) {
-      try {
-        onMessage(msg);
-      } catch {
-        // swallow errors from user handler
-      }
-    }
-  }, [store, onMessage]);
 
   // -------------------------------------------------------------
   // Lifecycle
