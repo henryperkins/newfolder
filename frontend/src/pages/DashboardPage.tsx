@@ -16,8 +16,8 @@ export const DashboardPage: React.FC = () => {
   }, []); // Empty dependency array - fetchProjects is stable in Zustand
 
   const handleProjectCreated = async (projectId: string) => {
-    // Refresh projects to ensure dashboard shows updated list
-    await fetchProjects();
+    // Store automatically adds new project to the list, no need to refetch
+    // Just navigate to the new project
     navigate(`/projects/${projectId}`);
   };
 
