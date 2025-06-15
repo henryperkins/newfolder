@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 from typing import Optional, List
 import uuid
 from datetime import datetime
@@ -27,7 +27,7 @@ async def list_activities(
 ):
     """Get user activity timeline"""
     activity_logger = ActivityLogger(db)
-    
+
     activities = await activity_logger.get_user_activities(
         user_id=str(current_user.id),
         project_id=str(project_id) if project_id else None,
@@ -64,7 +64,7 @@ async def list_activities(
         total_query = total_query.filter(ActivityLog.project_id == project_id)
     if since:
         total_query = total_query.filter(ActivityLog.created_at >= since)
-    
+
     total = total_query.count()
 
     return ActivityListResponse(
@@ -82,7 +82,7 @@ async def get_activity_summary(
 ):
     """Get activity summary statistics"""
     activity_logger = ActivityLogger(db)
-    
+
     summary = await activity_logger.get_activity_summary(
         user_id=str(current_user.id),
         days=days
@@ -100,7 +100,7 @@ async def get_activity_summary(
                 ActivityLog.project_id == project.id,
                 ActivityLog.user_id == current_user.id
             ).count()
-            
+
             most_active_project = {
                 "id": str(project.id),
                 "name": project.name,

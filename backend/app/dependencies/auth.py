@@ -1,5 +1,5 @@
-from fastapi import Depends, HTTPException, Request, WebSocket
-from sqlalchemy.orm import Session
+from fastapi import Depends, HTTPException, Request, WebSocket  # type: ignore[import]
+from sqlalchemy.orm import Session  # type: ignore[import]
 from ..core.database import get_db, get_async_db
 from ..core.config import settings
 from ..models.user import User
@@ -51,7 +51,7 @@ async def get_current_user(
 
 # Chat-related dependencies
 # ---------------------------------------------------------------------------
-# Singleton services                                                         
+# Singleton services
 # ---------------------------------------------------------------------------
 
 from ..services.websocket_manager import connection_manager as _global_cm
@@ -64,7 +64,7 @@ def get_connection_manager() -> ConnectionManager:  # noqa: D401
     return _global_cm
 
 
-def get_ai_provider() -> OpenAIProvider:
+def get_ai_provider() -> AIProvider:
     """Get AI provider instance"""
     global _ai_provider
     if _ai_provider is None:
@@ -80,7 +80,7 @@ def get_ai_provider() -> OpenAIProvider:
     return _ai_provider
 
 
-from sqlalchemy.ext.asyncio import AsyncSession  # moved here to avoid optional dep issues
+from sqlalchemy.ext.asyncio import AsyncSession  # moved here to avoid optional dep issues  # type: ignore[import]
 
 
 async def get_chat_service(
@@ -93,7 +93,7 @@ async def get_chat_service(
 
 
 # ---------------------------------------------------------------------------
-# Document service (async)                                                   
+# Document service (async)
 # ---------------------------------------------------------------------------
 
 
@@ -161,11 +161,11 @@ async def get_websocket_user(
     token = None
     if hasattr(websocket, 'cookies'):
         token = websocket.cookies.get("access_token")
-    
+
     # Fallback to query parameter for programmatic access
     if not token:
         token = websocket.query_params.get("token")
-    
+
     if not token:
         await websocket.close(code=4001, reason="Authentication required")
         raise HTTPException(status_code=401, detail="Not authenticated")
@@ -197,10 +197,10 @@ async def get_websocket_user(
 
 
 try:
-    from ..services.vector_db_service import VectorDBService  # noqa: WPS433
-    from ..services.file_processor_service import FileProcessorService  # noqa: WPS433
-    from ..services.rag_service import RAGService  # noqa: WPS433
-    from ..services.ai_provider import AIProvider  # noqa: WPS433
+    from ..services.vector_db_service import VectorDBService  # noqa: WPS433  # type: ignore[assignment]
+    from ..services.file_processor_service import FileProcessorService  # noqa: WPS433  # type: ignore[assignment]
+    from ..services.rag_service import RAGService  # noqa: WPS433  # type: ignore[assignment]
+    from ..services.ai_provider import AIProvider  # noqa: WPS433  # type: ignore[assignment]
 
 except Exception:  # pragma: no cover – graceful degradation
 
