@@ -1,35 +1,51 @@
-from fastapi import Depends, HTTPException, Request, WebSocket  # type: ignore[import]
-from sqlalchemy.orm import Session  # type: ignore[import]
-from ..core.database import get_db, get_async_db
+# app/dependencies/auth.py
+
+"""
+Authentication and user-loading dependency providers for FastAPI.
+"""
+
+from fastapi import Depends, HTTPException, Request, WebSocket  # type: ignore[import-error]
+from sqlalchemy.orm import Session  # type: ignore[import-error]
+from sqlalchemy.ext.asyncio import AsyncSession  # type: ignore[import-error]
+from sqlalchemy.future import select  # type: ignore[import-error]
+
 from ..core.config import settings
+from ..core.database import get_db, get_async_db
 from ..models.user import User
 from ..services.security import SecurityService
 from ..services.email import EmailService
+
+# Imports for new service dependencies
+from ..services.websocket_manager import connection_manager, ConnectionManager
 from ..services.chat_service import ChatService
-from ..services.document_service import DocumentService
-from ..services.websocket_manager import ConnectionManager
-from ..services.ai_provider import OpenAIProvider, AIProviderFactory
+from ..services.ai_provider import AIProvider
+from ..services.document_service import DocumentService  # Assuming DocumentService is in this location
+# Added imports for RAGService and VectorDBService
+from ..services.rag_service import RAGService
+from ..services.vector_db_service import VectorDBService
 
 
 def get_security_service() -> SecurityService:
+    """Return a configured SecurityService for signing and verifying JWTs."""
     return SecurityService(settings.secret_key, settings.algorithm)
 
 
 def get_email_service() -> EmailService:
+    """Return a configured EmailService."""
     return EmailService(
-        settings.smtp_host,
-        settings.smtp_port,
-        settings.smtp_username,
-        settings.smtp_password
+        smtp_host=settings.smtp_host,
+        smtp_port=settings.smtp_port,
+        username=settings.smtp_username,
+        password=settings.smtp_password,
     )
 
 
-async def get_current_user(
+def get_current_user(
     request: Request,
     db: Session = Depends(get_db),
-    security_service: SecurityService = Depends(get_security_service)
+    security_service: SecurityService = Depends(get_security_service),
 ) -> User:
-    """Extract and validate user from JWT token"""
+    """Extract and validate the current user from the JWT stored in cookies."""
     token = request.cookies.get("access_token")
     if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")
@@ -37,135 +53,28 @@ async def get_current_user(
     try:
         payload = security_service.decode_token(token)
         user_id = payload.get("sub")
-        if not user_id:
+        if user_id is None:
             raise HTTPException(status_code=401, detail="Invalid token")
-    except ValueError:
-        raise HTTPException(status_code=401, detail="Invalid token")
+    except ValueError as exc:
+        raise HTTPException(status_code=401, detail="Invalid token") from exc
 
     user = db.query(User).filter(User.id == user_id).first()
-    if not user or not user.is_active:
+    if user is None or not user.is_active:
         raise HTTPException(status_code=401, detail="User not found or inactive")
 
     return user
 
 
-# Chat-related dependencies
-# ---------------------------------------------------------------------------
-# Singleton services
-# ---------------------------------------------------------------------------
-
-from ..services.websocket_manager import connection_manager as _global_cm
-
-_ai_provider = None
-
-
-def get_connection_manager() -> ConnectionManager:  # noqa: D401
-    """Return process-wide :class:`ConnectionManager` (Redis-aware if enabled)."""
-    return _global_cm
-
-
-def get_ai_provider() -> AIProvider:
-    """Get AI provider instance"""
-    global _ai_provider
-    if _ai_provider is None:
-        # In a real app, this would come from settings
-        # For now, create a mock provider
-        try:
-            api_key = getattr(settings, 'openai_api_key', 'test-key')
-            _ai_provider = OpenAIProvider(api_key=api_key)
-        except Exception:
-            # Fallback for testing
-            from ..services.ai_provider import MockAIProvider
-            _ai_provider = MockAIProvider()
-    return _ai_provider
-
-
-from sqlalchemy.ext.asyncio import AsyncSession  # moved here to avoid optional dep issues  # type: ignore[import]
-
-
-async def get_chat_service(
-    db: AsyncSession = Depends(get_async_db),
-    ai_provider: OpenAIProvider = Depends(get_ai_provider),
-) -> ChatService:  # type: ignore[valid-type]
-    """Return ChatService bound to *async* session."""
-
-    return ChatService(db, ai_provider)
-
-
-# ---------------------------------------------------------------------------
-# Document service (async)
-# ---------------------------------------------------------------------------
-
-
-async def get_document_service(
-    db: AsyncSession = Depends(get_async_db),
-) -> DocumentService:  # noqa: D401 – dependency provider
-    return DocumentService(db)
-
-# ---------------------------------------------------------------------------
-# Phase 4 additional dependency providers
-# ---------------------------------------------------------------------------
-
-
-# Lazy imports to avoid circular dependencies during startup if optional libs
-# are missing in certain environments.
-
-
-def _lazy_import_vector_service():
-    from ..services.vector_db_service import VectorDBService
-    return VectorDBService()
-
-
-def _lazy_import_file_processor():
-    from ..services.file_processor_service import FileProcessorService
-    return FileProcessorService()
-
-
-def _lazy_import_rag_service(vector_db, ai_provider):
-    from ..services.rag_service import RAGService
-    return RAGService(vector_db, ai_provider)
-
-
-_vector_db_singleton = None
-
-
-def get_vector_db_service():
-    """Get vector database service instance"""
-    global _vector_db_singleton
-    if _vector_db_singleton is None:
-        _vector_db_singleton = _lazy_import_vector_service()
-    return _vector_db_singleton
-
-
-def get_file_processor_service():
-    """Get file processor service instance"""
-    return _lazy_import_file_processor()
-
-
-def get_rag_service(
-    vector_db=Depends(get_vector_db_service),
-    ai_provider=Depends(get_ai_provider)
-):
-    """Get RAG service instance"""
-    return _lazy_import_rag_service(vector_db, ai_provider)
-
-
-
 async def get_websocket_user(
     websocket: WebSocket,
     security_service: SecurityService = Depends(get_security_service),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db),
 ) -> User:
-    """Extract and validate user from WebSocket connection (via cookie or query param)"""
-    # Try to get token from cookie first (sent by browser)
-    token = None
-    if hasattr(websocket, 'cookies'):
-        token = websocket.cookies.get("access_token")
-
-    # Fallback to query parameter for programmatic access
-    if not token:
-        token = websocket.query_params.get("token")
-
+    """Extract and validate the current user from JWT provided via WebSocket."""
+    token = (
+        websocket.cookies.get("access_token")
+        or websocket.query_params.get("token")
+    )
     if not token:
         await websocket.close(code=4001, reason="Authentication required")
         raise HTTPException(status_code=401, detail="Not authenticated")
@@ -173,52 +82,62 @@ async def get_websocket_user(
     try:
         payload = security_service.decode_token(token)
         user_id = payload.get("sub")
-        if not user_id:
-            await websocket.close(code=4001, reason="Invalid token")
+        if user_id is None:
             raise HTTPException(status_code=401, detail="Invalid token")
-    except ValueError:
+    except ValueError as exc:
         await websocket.close(code=4001, reason="Invalid token")
-        raise HTTPException(status_code=401, detail="Invalid token")
+        raise HTTPException(status_code=401, detail="Invalid token") from exc
 
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user or not user.is_active:
+    result = await db.execute(select(User).filter(User.id == user_id))
+    user = result.scalars().first()
+    if user is None or not user.is_active:
         await websocket.close(code=4001, reason="User not found or inactive")
         raise HTTPException(status_code=401, detail="User not found or inactive")
 
     return user
 
-# ---------------------------------------------------------------------------
-# Phase-4 optional service factories ---------------------------------------
-# ---------------------------------------------------------------------------
 
-# The heavy-weight Phase-4 dependencies (vector database, file processor, RAG
-# service) are optional in the sandbox so we import lazily and provide minimal
-# fallbacks when the real packages are absent.
+# New service provider functions
 
-
-try:
-    from ..services.vector_db_service import VectorDBService  # noqa: WPS433  # type: ignore[assignment]
-    from ..services.file_processor_service import FileProcessorService  # noqa: WPS433  # type: ignore[assignment]
-    from ..services.rag_service import RAGService  # noqa: WPS433  # type: ignore[assignment]
-    from ..services.ai_provider import AIProvider  # noqa: WPS433  # type: ignore[assignment]
-
-except Exception:  # pragma: no cover – graceful degradation
-
-    class VectorDBService:  # type: ignore[misc]
-        """Tiny placeholder used when the real service cannot be imported."""
-
-        pass
-
-    class FileProcessorService:  # type: ignore[misc]
-        pass
-
-    class RAGService:  # type: ignore[misc]
-        def __init__(self, *_: object, **__: object) -> None:  # noqa: D401
-            pass
-
-    class AIProvider:  # type: ignore[misc]
-        pass
+def get_connection_manager() -> ConnectionManager:
+    """Return the global ConnectionManager instance."""
+    return connection_manager
 
 
+def get_chat_service(db: AsyncSession = Depends(get_async_db)) -> ChatService:
+    """Return a ChatService instance."""
+    return ChatService(db)
 
 
+def get_ai_provider() -> AIProvider:
+    """Return an AIProvider instance."""
+    # This might need configuration if AIProvider has specific init args
+    return AIProvider()
+
+
+def get_document_service(db: AsyncSession = Depends(get_async_db)) -> DocumentService:
+    """Return a DocumentService instance."""
+    return DocumentService(db)
+
+
+def get_rag_service(
+    ai_provider: AIProvider = Depends(get_ai_provider)
+) -> RAGService:
+    """Return a RAGService instance."""
+    # Ensure VectorDBService uses an embedding model consistent with RAGService query model
+    # RAGService defaults to "text-embedding-3-small" for queries.
+    # VectorDBService should have used a compatible model for storing document embeddings.
+    vdb_embedding_model = getattr(settings, "vector_db_embedding_model", "text-embedding-3-small")
+
+    vector_db_service = VectorDBService(
+        db_path=settings.chroma_db_path,  # This setting must be configured
+        embedding_model_name=vdb_embedding_model
+    )
+
+    rag_service_instance = RAGService(
+        vector_db_service=vector_db_service,
+        ai_provider=ai_provider,
+        embedding_model_name=getattr(settings, "rag_query_embedding_model", "text-embedding-3-small"),
+        reranker_model_name=getattr(settings, "rag_reranker_model", 'cross-encoder/ms-marco-MiniLM-L-2-v2')
+    )
+    return rag_service_instance

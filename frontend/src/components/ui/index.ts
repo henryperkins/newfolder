@@ -1,6 +1,7 @@
 export { Modal } from './Modal';
-export { ToastProvider, useToast } from './Toast';
-export type { Toast } from './Toast';
+export { ToastProvider } from './Toast';
+export { useToast } from './useToast';
+export type { Toast } from './toastTypes';
 export { Badge } from './Badge';
 export { Tooltip } from './Tooltip';
 export { LoadingSpinner, LoadingOverlay } from './LoadingSpinner';
