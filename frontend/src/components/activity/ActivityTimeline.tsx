@@ -1,10 +1,10 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { 
-  FolderPlus, 
-  MessageSquare, 
-  FileUp, 
-  Edit3, 
-  Archive, 
+import {
+  FolderPlus,
+  MessageSquare,
+  FileUp,
+  Edit3,
+  Archive,
   Trash2,
   Clock,
   ChevronDown
@@ -61,7 +61,7 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
       limit
     };
     fetchActivities(params);
-  }, [projectId, limit]); // fetchActivities is stable in Zustand
+  }, [fetchActivities, projectId, limit]); // fetchActivities is stable in Zustand
 
   const handleLoadMore = useCallback(() => {
     if (onLoadMore) {
@@ -87,7 +87,7 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
     const now = new Date();
     const date = new Date(dateString);
     const diff = now.getTime() - date.getTime();
-    
+
     const minutes = Math.floor(diff / (1000 * 60));
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
@@ -107,11 +107,11 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
 
   const groupActivitiesByDay = (activities: ActivityItem[]) => {
     const groups: Record<string, ActivityItem[]> = {};
-    
+
     activities.forEach(activity => {
       const date = new Date(activity.created_at);
       const dayKey = date.toDateString();
-      
+
       if (!groups[dayKey]) {
         groups[dayKey] = [];
       }
@@ -136,7 +136,7 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
     };
 
     let description = baseDescriptions[activity.activity_type as keyof typeof baseDescriptions] || 'Unknown activity';
-    
+
     if (activity.project_name) {
       description += ` in ${activity.project_name}`;
     }
@@ -186,7 +186,7 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
           No recent activity
         </h3>
         <p className="text-gray-600">
-          {projectId 
+          {projectId
             ? 'Activity in this project will appear here'
             : 'Your recent actions will appear here'
           }
@@ -208,9 +208,9 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
             </div>
             <div className="relative flex justify-center">
               <span className="bg-white px-3 text-sm font-medium text-gray-500">
-                {new Date(day).toLocaleDateString(undefined, { 
-                  weekday: 'long', 
-                  month: 'long', 
+                {new Date(day).toLocaleDateString(undefined, {
+                  weekday: 'long',
+                  month: 'long',
                   day: 'numeric',
                   year: new Date(day).getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined
                 })}

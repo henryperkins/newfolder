@@ -13,7 +13,7 @@ export const DashboardPage: React.FC = () => {
   useEffect(() => {
     // Always fetch projects when component mounts to ensure fresh data
     fetchProjects();
-  }, []); // Empty dependency array - fetchProjects is stable in Zustand
+  }, [fetchProjects]); // Empty dependency array - fetchProjects is stable in Zustand
 
   const handleProjectCreated = async (projectId: string) => {
     // Store automatically adds new project to the list, no need to refetch

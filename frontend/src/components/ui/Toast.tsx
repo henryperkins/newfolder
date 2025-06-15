@@ -1,35 +1,11 @@
-import React, { useState, useEffect, createContext, useContext } from 'react';
-import { X, CheckCircle, XCircle, AlertCircle, Info } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X } from 'lucide-react';
 import { cn } from '@/utils';
+import { Toast } from './toastTypes';
+import { icons, styles, iconStyles } from './toastConfig';
+import { ToastContext } from './ToastContext';
 
-export type ToastType = 'success' | 'error' | 'warning' | 'info';
 
-export interface Toast {
-  id: string;
-  type: ToastType;
-  title: string;
-  message?: string;
-  duration?: number;
-  action?: {
-    label: string;
-    onClick: () => void;
-  };
-}
-
-interface ToastContextType {
-  showToast: (toast: Omit<Toast, 'id'>) => void;
-  removeToast: (id: string) => void;
-}
-
-const ToastContext = createContext<ToastContextType | undefined>(undefined);
-
-export const useToast = () => {
-  const context = useContext(ToastContext);
-  if (!context) {
-    throw new Error('useToast must be used within a ToastProvider');
-  }
-  return context;
-};
 
 interface ToastItemProps {
   toast: Toast;
@@ -41,7 +17,7 @@ const ToastItem: React.FC<ToastItemProps> = ({ toast, onRemove }) => {
 
   useEffect(() => {
     setIsVisible(true);
-    
+
     if (toast.duration !== 0) {
       const timer = setTimeout(() => {
         setIsVisible(false);
@@ -51,27 +27,6 @@ const ToastItem: React.FC<ToastItemProps> = ({ toast, onRemove }) => {
       return () => clearTimeout(timer);
     }
   }, [toast.duration, toast.id, onRemove]);
-
-  const icons = {
-    success: CheckCircle,
-    error: XCircle,
-    warning: AlertCircle,
-    info: Info,
-  };
-
-  const styles = {
-    success: 'bg-green-50 border-green-200 text-green-800',
-    error: 'bg-red-50 border-red-200 text-red-800',
-    warning: 'bg-yellow-50 border-yellow-200 text-yellow-800',
-    info: 'bg-blue-50 border-blue-200 text-blue-800',
-  };
-
-  const iconStyles = {
-    success: 'text-green-500',
-    error: 'text-red-500',
-    warning: 'text-yellow-500',
-    info: 'text-blue-500',
-  };
 
   const Icon = icons[toast.type];
 
@@ -92,7 +47,7 @@ const ToastItem: React.FC<ToastItemProps> = ({ toast, onRemove }) => {
       >
         <div className="flex items-start gap-3">
           <Icon className={cn('w-5 h-5 mt-0.5 flex-shrink-0', iconStyles[toast.type])} />
-          
+
           <div className="flex-1 min-w-0">
             <h4 className="text-sm font-medium">{toast.title}</h4>
             {toast.message && (
@@ -140,7 +95,7 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
   return (
     <ToastContext.Provider value={{ showToast, removeToast }}>
       {children}
-      
+
       {/* Toast Container */}
       <div className="fixed top-4 right-4 z-50 space-y-2">
         {toasts.map(toast => (

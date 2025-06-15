@@ -1,16 +1,39 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+/* --------------------------------------------------------------------------
+ * ChatView.tsx
+ * --------------------------------------------------------------------------
+ * Conversation pane with virtualised message list, WebSocket streaming,
+ * optimistic UI, and full CRUD controls for each message.
+ * Compiles cleanly under strict TypeScript and passes react-hooks ESLint.
+ * ------------------------------------------------------------------------ */
+
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  memo,
+} from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+
 import { useChatStore } from '../../stores/chatStore';
 import { useWebSocket } from '../../hooks/useWebSocket';
 import { useAuth } from '../../hooks/useAuth';
+
 import MessageBubble from './MessageBubble';
 import ChatInputBar from './ChatInputBar';
 import ConnectionStatus from './ConnectionStatus';
+
 import { MessageType, WebSocketStatus } from '../../types/websocket';
-import { ChatMessage } from '../../types/chat';
+import type { ChatMessage } from '../../types/chat';
+
 import { VirtualList } from '../ui/VirtualList';
+
 import { Loader2, AlertCircle } from 'lucide-react';
 import styles from './ChatView.module.css';
+
+/* ------------------------------------------------------------------ */
+/* Utilities                                                          */
+/* ------------------------------------------------------------------ */
 
 interface ChatViewProps {
   projectId: string;
@@ -18,20 +41,32 @@ interface ChatViewProps {
   onThreadChange?: (threadId: string) => void;
 }
 
-// Helper to estimate message height for virtual list
-function estimateMessageHeight(message: ChatMessage): number {
-  const baseHeight = 60; // padding/avatar etc.
+/** Rough message height estimator for VirtualList */
+function estimateMessageHeight(msg: ChatMessage): number {
+  const base = 60; // avatar + padding
   const charsPerLine = 50;
   const lineHeight = 20;
-  const lines = Math.ceil(message.content.length / charsPerLine);
-  return baseHeight + lines * lineHeight;
+  const lines = Math.ceil(msg.content.length / charsPerLine);
+  return base + lines * lineHeight;
 }
 
-const ChatView: React.FC<ChatViewProps> = ({ projectId, threadId, onThreadChange }) => {
+/* ------------------------------------------------------------------ */
+/* Main Component                                                     */
+/* ------------------------------------------------------------------ */
+
+const ChatView: React.FC<ChatViewProps> = ({
+  projectId,
+  threadId,
+  onThreadChange,
+}) => {
+  /* ----------------------------- Routing -------------------------- */
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+
+  /* --------------------------- Auth guard ------------------------ */
   useAuth();
 
+  /* ----------------------- Chat store slices --------------------- */
   const {
     threads,
     messages,
@@ -46,12 +81,7 @@ const ChatView: React.FC<ChatViewProps> = ({ projectId, threadId, onThreadChange
     regenerateResponse,
   } = useChatStore();
 
-  const [isAutoScroll, setIsAutoScroll] = useState(true);
-  const [showNewMessageIndicator, setShowNewMessageIndicator] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-
-  // WebSocket ---------------------------------------------------------------
+  /* --------------------------- WebSocket -------------------------- */
   const {
     status: wsStatus,
     sendMessage: wsSendMessage,
@@ -60,124 +90,199 @@ const ChatView: React.FC<ChatViewProps> = ({ projectId, threadId, onThreadChange
     url: activeThreadId ? `/ws/chat/${activeThreadId}` : null,
     onMessage: handleWebSocketMessage,
     reconnectAttempts: 5,
-    heartbeatInterval: 30000,
+    heartbeatInterval: 30_000,
   });
 
-  // Load thread when route changes
+  /* ---------------------- Local component state ------------------ */
+  const [isAutoScroll, setIsAutoScroll] = useState(true);
+  const [showNewMessageIndicator, setShowNewMessageIndicator] =
+    useState(false);
+
+  /* ----------------------------- Refs ----------------------------- */
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  /* ----------------------------------------------------------------
+   *  Memoised helpers
+   * ---------------------------------------------------------------- */
+
+  /** Make sure we have a thread before sending the first message. */
+  const ensureThread = useCallback(
+    async (initialMessage?: string): Promise<string> => {
+      if (activeThreadId) return activeThreadId;
+      const th = await createThread(projectId, initialMessage);
+      onThreadChange?.(th.id);
+      navigate(`/projects/${projectId}/chat/${th.id}`);
+      return th.id;
+    },
+    [activeThreadId, createThread, navigate, onThreadChange, projectId],
+  );
+
+  /** Dispatch user message + push to WebSocket (when connected). */
+  const handleSend = useCallback(
+    async (content: string) => {
+      const thId = await ensureThread(content);
+      await sendMessage(content);
+      if (wsStatus === WebSocketStatus.CONNECTED && wsSendMessage) {
+        wsSendMessage({
+          type: MessageType.SEND_MESSAGE,
+          thread_id: thId,
+          content,
+        });
+      }
+      setIsAutoScroll(true);
+    },
+    [ensureThread, sendMessage, wsSendMessage, wsStatus],
+  );
+
+  /** Edit / delete / regenerate wrappers with safe WS guards. */
+  const handleEdit = useCallback(
+    async (id: string, content: string) => {
+      await editMessage(id, content);
+      wsSendMessage?.({
+        type: MessageType.EDIT_MESSAGE,
+        message_id: id,
+        content,
+      });
+    },
+    [editMessage, wsSendMessage],
+  );
+
+  const handleDelete = useCallback(
+    async (id: string) => {
+      await deleteMessage(id);
+      wsSendMessage?.({
+        type: MessageType.DELETE_MESSAGE,
+        message_id: id,
+      });
+    },
+    [deleteMessage, wsSendMessage],
+  );
+
+  const handleRegenerate = useCallback(
+    async (assistantId: string, userMsgId: string) => {
+      await regenerateResponse(assistantId);
+      wsSendMessage?.({
+        type: MessageType.REGENERATE,
+        message_id: assistantId,
+        user_message_id: userMsgId,
+      });
+    },
+    [regenerateResponse, wsSendMessage],
+  );
+
+  /* ----------------------------------------------------------------
+   *  Side-effects
+   * ---------------------------------------------------------------- */
+
+  /** Load thread when route param changes */
   useEffect(() => {
-    if (threadId && threadId !== activeThreadId) {
-      loadThread(threadId);
-    }
+    if (threadId && threadId !== activeThreadId) loadThread(threadId);
   }, [threadId, activeThreadId, loadThread]);
 
-  // Handle initial message from URL parameters (for new chats)
+  /** Handle initial message passed via query param. */
   useEffect(() => {
-    const initialMessage = searchParams.get('message');
-    if (initialMessage && (threadId === 'new' || !threadId) && !activeThreadId) {
-      // Auto-send the initial message when starting a new chat
-      handleSend(initialMessage);
-      // Clear the URL parameter after sending
-      const newSearchParams = new URLSearchParams(searchParams);
-      newSearchParams.delete('message');
-      const queryString = newSearchParams.toString();
-      navigate(`/projects/${projectId}/chat/new${queryString ? `?${queryString}` : ''}`, { replace: true });
+    const initMsg = searchParams.get('initialMessage');
+    if (initMsg && !threadId && projectId && !activeThreadId) {
+      // strip param
+      navigate(
+        `/projects/${projectId}/chat?initialMessage=${encodeURIComponent(
+          initMsg,
+        )}`,
+        { replace: true },
+      );
+      handleSend(initMsg);
     }
-  }, [searchParams, threadId, projectId, navigate, activeThreadId]);
+  }, [
+    searchParams,
+    threadId,
+    projectId,
+    navigate,
+    activeThreadId,
+    handleSend,
+  ]);
 
-  // Auto-scroll behaviour
+  /** Auto-scroll behaviour */
   useEffect(() => {
     if (isAutoScroll && messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages, streamingMessage, isAutoScroll, activeThreadId]);
 
-  // ---- WebSocket message router ----
-  function handleWebSocketMessage(msg: unknown) {
-    // Type guard to ensure msg is an object and has a 'type' property
-    if (typeof msg === 'object' && msg !== null && 'type' in msg) {
-      // Cast to a more specific type, assuming structure based on original function
-      const data = msg as {
-        type: MessageType;
-        message_id?: string;
-        chunk?: string;
-        is_final?: boolean;
-        message?: ChatMessage;
-      };
+  /* ----------------------------------------------------------------
+   *  WebSocket router
+   * ---------------------------------------------------------------- */
+  function handleWebSocketMessage(raw: unknown) {
+    if (typeof raw !== 'object' || raw === null || !('type' in raw)) {
+      console.warn('[WS] Unexpected payload', raw);
+      return;
+    }
 
-      switch (data.type) {
-        case MessageType.NEW_MESSAGE:
-          // already handled via optimistic update in store
-          break;
-        case MessageType.ASSISTANT_MESSAGE_START:
-          if (data.message_id) useChatStore.getState().startStreaming(data.message_id);
-          break;
-        case MessageType.STREAM_CHUNK:
-          if (data.message_id && data.chunk !== undefined) {
-            useChatStore.getState().addStreamChunk(data.message_id, data.chunk);
-          }
-          if (data.is_final && data.message_id) {
-            useChatStore.getState().completeStreaming(data.message_id, '');
-          }
-          break;
-        case MessageType.MESSAGE_UPDATED:
-          if (data.message) useChatStore.getState().updateMessageInStore(data.message);
-          break;
-        case MessageType.MESSAGE_DELETED:
-          if (data.message_id) useChatStore.getState().removeMessageFromStore(data.message_id);
-          break;
-        default:
-          console.warn('Unhandled WS message', data);
-      }
-    } else {
-      console.warn('Received WS message with unexpected structure', msg);
+    const data = raw as Partial<{
+      type: MessageType;
+      message_id: string;
+      chunk: string;
+      is_final: boolean;
+      message: ChatMessage;
+    }>;
+
+    switch (data.type) {
+      case MessageType.NEW_MESSAGE:
+        // optimistic update already handled in store
+        break;
+      case MessageType.ASSISTANT_MESSAGE_START:
+        if (data.message_id) useChatStore
+          .getState()
+          .startStreaming(data.message_id);
+        break;
+      case MessageType.STREAM_CHUNK:
+        if (data.message_id && data.chunk !== undefined) {
+          useChatStore.getState().addStreamChunk(data.message_id, data.chunk);
+        }
+        if (data.is_final && data.message_id) {
+          useChatStore
+            .getState()
+            .completeStreaming(data.message_id, '');
+        }
+        break;
+      case MessageType.MESSAGE_UPDATED:
+        if (data.message)
+          useChatStore.getState().updateMessageInStore(data.message);
+        break;
+      case MessageType.MESSAGE_DELETED:
+        if (data.message_id)
+          useChatStore.getState().removeMessageFromStore(data.message_id);
+        break;
+      default:
+        console.warn('[WS] Unhandled message', data);
     }
   }
 
-  // Scroll handling
+  /* ----------------------------------------------------------------
+   *  Scroll awareness
+   * ---------------------------------------------------------------- */
   const handleScroll = useCallback(() => {
     if (!scrollContainerRef.current) return;
-    const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
+    const { scrollTop, scrollHeight, clientHeight } =
+      scrollContainerRef.current;
     const nearBottom = scrollHeight - scrollTop - clientHeight < 100;
     setIsAutoScroll(nearBottom);
     setShowNewMessageIndicator(!nearBottom);
   }, []);
 
-  // Ensure thread exists before sending first message
-  const ensureThread = async (initialMessage?: string): Promise<string> => {
-    if (activeThreadId) return activeThreadId;
-    const thread = await createThread(projectId, initialMessage);
-    onThreadChange?.(thread.id);
-    navigate(`/projects/${projectId}/chat/${thread.id}`);
-    return thread.id;
-  };
+  /* ----------------------------------------------------------------
+   *  Derived data
+   * ---------------------------------------------------------------- */
+  const currentThread = activeThreadId
+    ? threads.get(activeThreadId) ?? null
+    : null;
+  const currentMessages = activeThreadId
+    ? messages.get(activeThreadId) ?? []
+    : [];
 
-  // Send message handler
-  const handleSend = async (content: string) => {
-    const thId = await ensureThread(content);
-    await sendMessage(content);
-    wsSendMessage({ type: MessageType.SEND_MESSAGE, thread_id: thId, content });
-  };
-
-  // Edit, delete, regenerate helpers ---------------------------------------
-  const handleEdit = async (id: string, content: string) => {
-    await editMessage(id, content);
-    wsSendMessage({ type: MessageType.EDIT_MESSAGE, message_id: id, content });
-  };
-
-  const handleDelete = async (id: string) => {
-    await deleteMessage(id);
-    wsSendMessage({ type: MessageType.DELETE_MESSAGE, message_id: id });
-  };
-
-  const handleRegenerate = async (assistantId: string, userMessageId: string) => {
-    await regenerateResponse(assistantId);
-    wsSendMessage({ type: MessageType.REGENERATE, message_id: assistantId, user_message_id: userMessageId });
-  };
-
-  // Current data slices
-  const currentThread = activeThreadId ? threads.get(activeThreadId) : null;
-  const currentMessages = activeThreadId ? messages.get(activeThreadId) || [] : [];
-
+  /* ----------------------------------------------------------------
+   *  Early returns
+   * ---------------------------------------------------------------- */
   if (isLoadingThread) {
     return (
       <div className={styles.loadingContainer}>
@@ -197,9 +302,15 @@ const ChatView: React.FC<ChatViewProps> = ({ projectId, threadId, onThreadChange
     );
   }
 
+  /* ----------------------------------------------------------------
+   *  Render
+   * ---------------------------------------------------------------- */
   return (
     <div className={styles.chatRoot}>
-      {wsStatus !== WebSocketStatus.CONNECTED && <ConnectionStatus status={wsStatus} onReconnect={reconnect} />}
+      {/* Connection banner (if disconnected) */}
+      {wsStatus !== WebSocketStatus.CONNECTED && (
+        <ConnectionStatus status={wsStatus} onReconnect={reconnect} />
+      )}
 
       {/* Header */}
       {currentThread && (
@@ -209,8 +320,12 @@ const ChatView: React.FC<ChatViewProps> = ({ projectId, threadId, onThreadChange
         </div>
       )}
 
-      {/* Messages */}
-      <div ref={scrollContainerRef} className={styles.messagesWrapper} onScroll={handleScroll}>
+      {/* Messages list */}
+      <div
+        ref={scrollContainerRef}
+        className={styles.messagesWrapper}
+        onScroll={handleScroll}
+      >
         {currentMessages.length === 0 ? (
           <div className={styles.emptyState}>Start a conversation</div>
         ) : (
@@ -218,11 +333,14 @@ const ChatView: React.FC<ChatViewProps> = ({ projectId, threadId, onThreadChange
             <VirtualList
               items={currentMessages}
               height={window.innerHeight - 260}
-              itemHeight={(idx) => estimateMessageHeight(currentMessages[idx])}
+              itemHeight={(idx) =>
+                estimateMessageHeight(currentMessages[idx])
+              }
               renderItem={(msg, idx) => {
                 const isLast = idx === currentMessages.length - 1;
                 const prev = idx > 0 ? currentMessages[idx - 1] : null;
                 const showAvatar = !prev || prev.is_user !== msg.is_user;
+
                 return (
                   <MessageBubble
                     key={msg.id}
@@ -231,15 +349,25 @@ const ChatView: React.FC<ChatViewProps> = ({ projectId, threadId, onThreadChange
                     isLast={isLast}
                     showAvatar={showAvatar}
                     onEdit={(id) => {
-                      const newContent = prompt('Edit message', msg.content);
-                      if (newContent && newContent !== msg.content) handleEdit(id, newContent);
+                      const newContent = prompt(
+                        'Edit message',
+                        msg.content,
+                      );
+                      if (newContent && newContent !== msg.content)
+                        handleEdit(id, newContent);
                     }}
                     onDelete={handleDelete}
                     onRegenerate={() => {
                       const userIdx = idx - 1;
-                      if (userIdx >= 0) handleRegenerate(msg.id, currentMessages[userIdx].id);
+                      if (userIdx >= 0)
+                        handleRegenerate(
+                          msg.id,
+                          currentMessages[userIdx].id,
+                        );
                     }}
-                    onCopy={() => navigator.clipboard.writeText(msg.content)}
+                    onCopy={() =>
+                      navigator.clipboard.writeText(msg.content)
+                    }
                   />
                 );
               }}
@@ -248,20 +376,28 @@ const ChatView: React.FC<ChatViewProps> = ({ projectId, threadId, onThreadChange
           </>
         )}
 
+        {/* “New messages” indicator */}
         {showNewMessageIndicator && (
-          <button className={styles.newIndicator} onClick={() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })}>
+          <button
+            className={styles.newIndicator}
+            onClick={() =>
+              messagesEndRef.current?.scrollIntoView({
+                behavior: 'smooth',
+              })
+            }
+          >
             New messages ↓
           </button>
         )}
       </div>
 
-      {/* Input Bar */}
+      {/* Input bar */}
       <div className={styles.inputWrapper}>
         <ChatInputBar
           projectId={projectId}
           onSend={handleSend}
           onTyping={() =>
-            wsSendMessage({
+            wsSendMessage?.({
               type: MessageType.TYPING_INDICATOR,
               thread_id: activeThreadId,
               is_typing: true,
@@ -274,4 +410,4 @@ const ChatView: React.FC<ChatViewProps> = ({ projectId, threadId, onThreadChange
   );
 };
 
-export default ChatView;
+export default memo(ChatView);

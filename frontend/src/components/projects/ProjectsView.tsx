@@ -41,7 +41,7 @@ export const ProjectsView: React.FC = () => {
 
   useEffect(() => {
     fetchProjects();
-  }, []); // Zustand functions are stable
+  }, [fetchProjects]); // Zustand functions are stable
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
@@ -108,10 +108,10 @@ export const ProjectsView: React.FC = () => {
     if (!project) return;
 
     const action = project.is_archived ? 'unarchive' : 'archive';
-    const message = project.is_archived 
+    const message = project.is_archived
       ? 'Are you sure you want to unarchive this project?'
       : 'Are you sure you want to archive this project?';
-    
+
     if (window.confirm(message)) {
       try {
         await updateProject(projectId, { is_archived: !project.is_archived });

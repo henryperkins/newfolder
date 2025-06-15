@@ -45,6 +45,7 @@ export const useWebSocket = ({
   // -------------------------------------------------------------
   const startHeartbeat = useCallback(() => {
     if (heartbeatTimer.current) clearInterval(heartbeatTimer.current);
+
     heartbeatTimer.current = window.setInterval(() => {
       if (wsRef.current?.readyState === WebSocket.OPEN) {
         wsRef.current.send(JSON.stringify({ type: 'heartbeat', timestamp: Date.now() }));
@@ -151,7 +152,7 @@ export const useWebSocket = ({
         // ignore malformed
       }
     };
-  }, [url, token, reconnectAttempts, heartbeatInterval, startHeartbeat, handleIncomingMessage]);
+  }, [url, token, reconnectAttempts, startHeartbeat, handleIncomingMessage]);
 
 
   // -------------------------------------------------------------

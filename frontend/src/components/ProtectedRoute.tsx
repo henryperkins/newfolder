@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores';
 import { authApi } from '@/utils';
@@ -35,7 +35,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
         setUser(currentUser);
         setAuthChecked(true);
         setIsLoading(false);
-      } catch (error) {
+      } catch {
         console.log('Authentication failed, redirecting to login');
         logout(); // Clear any stale auth state
         setAuthChecked(true);

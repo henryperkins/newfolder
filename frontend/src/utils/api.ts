@@ -28,7 +28,7 @@ api.interceptors.response.use(
       // Only redirect if we're not already on a public route
       const currentPath = window.location.pathname;
       const publicRoutes = ['/login', '/register', '/reset-password', '/forgot-password'];
-      
+
       if (!publicRoutes.includes(currentPath)) {
         console.log('Redirecting to login due to 401');
         // Clear auth state and redirect to login
@@ -182,11 +182,25 @@ export const chatApi = {
 // -----------------------------------------------------------------------------
 // Search API (Phase-5)
 // -----------------------------------------------------------------------------
+
+interface ApiSearchResult {
+  // Define the structure of what your API returns for search results
+  // This is an example, adjust it to your actual API response
+  documents: Array<{ id: string; title: string; preview: string; project_id: string; updated_at: string; type: string }>;
+  chats: Array<{ id: string; thread_id: string; preview: string; created_at: string; type: string }>;
+  semantic_matches: Array<{ id: string; content: string; score: number; metadata: Record<string, unknown>; type: string }>;
+}
+
+interface ApiSearchResponse {
+  results: ApiSearchResult;
+  // Add other potential top-level fields from the API response
+}
+
 export const searchApi = {
-  search: async (query: string, projectId?: string): Promise<any> => {
-    const params = new URLSearchParams({ q: query });
-    if (projectId) params.append('project_id', projectId);
-    const response = await api.get(`/search?${params}`);
+  search: async (query: string, projectId?: string): Promise<ApiSearchResponse> => {
+    const response = await api.get('/search', {
+      params: { q: query, project_id: projectId },
+    });
     return response.data;
   }
 };
