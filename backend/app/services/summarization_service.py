@@ -21,7 +21,7 @@ import asyncio
 from datetime import datetime, timedelta
 from typing import List, Optional
 
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 # Local imports
 from .ai_provider import AIProvider, ConversationManager, AIMessage
@@ -35,7 +35,7 @@ class SummarizationService:  # noqa: D401 – service container
 
     def __init__(
         self,
-        db: Session,
+        db: AsyncSession,
         ai_provider: AIProvider,
         conversation_manager: ConversationManager,
     ) -> None:  # noqa: D401 – constructor
@@ -65,25 +65,28 @@ class SummarizationService:  # noqa: D401 – service container
         if thread.last_summary_at and datetime.utcnow() - thread.last_summary_at < self.time_threshold:
             return False
 
-        unsummarized_count = self._count_unsummarized_messages(thread.id)
+        unsummarized_count = await self._count_unsummarized_messages(thread.id)
         if unsummarized_count >= self.message_threshold:
             return True
 
-        token_estimate = self._estimate_unsummarized_tokens(thread.id)
+        token_estimate = await self._estimate_unsummarized_tokens(thread.id)
         return token_estimate >= self.token_threshold
 
     async def summarize_thread(self, thread_id: str, *, force: bool = False) -> Optional["ChatSummary"]:  # type: ignore[name-defined]
         """Create a new summary for *thread_id* and return the persisted object."""
 
-        # Fetch thread – use scalar() to avoid ORM deprecation warnings.
-        thread = self.db.query(self._ChatThread).filter_by(id=thread_id).first()
+        # Fetch thread – async select style
+        from sqlalchemy import select
+
+        stmt_thread = select(self._ChatThread).where(self._ChatThread.id == thread_id)
+        thread = await self.db.scalar(stmt_thread)
         if not thread:
             return None
 
         if not force and not await self.should_summarize(thread):
             return None
 
-        messages = self._get_messages_for_summary(thread_id)
+        messages = await self._get_messages_for_summary(thread_id)
         if not messages:
             return None
 
@@ -109,13 +112,9 @@ class SummarizationService:  # noqa: D401 – service container
             msg.is_summarized = True
 
         try:
-            from ..utils.concurrency import run_in_thread
-
-            await run_in_thread(self.db.commit)
+            await self.db.commit()
         except Exception:  # pragma: no cover – DB may be mocked
-            from ..utils.concurrency import run_in_thread
-
-            await run_in_thread(self.db.rollback)
+            await self.db.rollback()
 
         return summary
 
@@ -125,12 +124,15 @@ class SummarizationService:  # noqa: D401 – service container
         while True:
             await asyncio.sleep(3600)  # hourly
 
-            threads = (
-                self.db.query(self._ChatThread)
-                .filter(self._ChatThread.is_archived.is_(False))
+            from sqlalchemy import select
+
+            stmt_threads = (
+                select(self._ChatThread)
+                .where(self._ChatThread.is_archived.is_(False))
                 .limit(20)
-                .all()
             )
+            result_threads = await self.db.scalars(stmt_threads)
+            threads = result_threads.all()
 
             for thread in threads:
                 if await self.should_summarize(thread):
@@ -140,29 +142,40 @@ class SummarizationService:  # noqa: D401 – service container
     # Internal helpers                                                  
     # ------------------------------------------------------------------
 
-    def _count_unsummarized_messages(self, thread_id: str) -> int:  # noqa: D401 – helper
-        return (
-            self.db.query(self._ChatMessage)
-            .filter_by(thread_id=thread_id, is_summarized=False)
-            .count()
-        )
+    async def _count_unsummarized_messages(self, thread_id: str) -> int:  # noqa: D401 – helper
+        from sqlalchemy import select, func
 
-    def _estimate_unsummarized_tokens(self, thread_id: str) -> int:  # noqa: D401
-        messages = (
-            self.db.query(self._ChatMessage)
-            .filter_by(thread_id=thread_id, is_summarized=False)
-            .all()
+        stmt = (
+            select(func.count())
+            .select_from(self._ChatMessage)
+            .where(self._ChatMessage.thread_id == thread_id, self._ChatMessage.is_summarized.is_(False))
         )
+        count: int = await self.db.scalar(stmt)
+        return count or 0
+
+    async def _estimate_unsummarized_tokens(self, thread_id: str) -> int:  # noqa: D401
+        from sqlalchemy import select
+
+        stmt = (
+            select(self._ChatMessage)
+            .where(self._ChatMessage.thread_id == thread_id, self._ChatMessage.is_summarized.is_(False))
+            .order_by(self._ChatMessage.created_at)
+        )
+        result = await self.db.scalars(stmt)
+        messages = result.all()
 
         return sum(self.ai_provider.count_tokens(m.content) for m in messages)
 
-    def _get_messages_for_summary(self, thread_id: str) -> List["ChatMessage"]:  # type: ignore[name-defined]
-        return (
-            self.db.query(self._ChatMessage)
-            .filter_by(thread_id=thread_id, is_summarized=False)
+    async def _get_messages_for_summary(self, thread_id: str) -> List["ChatMessage"]:  # type: ignore[name-defined]
+        from sqlalchemy import select
+
+        stmt = (
+            select(self._ChatMessage)
+            .where(self._ChatMessage.thread_id == thread_id, self._ChatMessage.is_summarized.is_(False))
             .order_by(self._ChatMessage.created_at)
-            .all()
         )
+        result = await self.db.scalars(stmt)
+        return result.all()
 
     async def _generate_summary_text(self, messages):  # noqa: D401 – simple helper
         """Ask the AI provider for a summary or fall back to static text."""

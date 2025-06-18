@@ -8,23 +8,13 @@ can delete the sync section.
 
 from __future__ import annotations
 
-from typing import Generator, AsyncGenerator
+from typing import AsyncGenerator
 
-from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, Session
+
 
 from .config import settings
-
-
-# ---------------------------------------------------------------------------
-# Synchronous engine (legacy)                                               
-# ---------------------------------------------------------------------------
-
-
-sync_engine = create_engine(settings.database_url)
-SyncSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=sync_engine)
 
 
 # ---------------------------------------------------------------------------
@@ -55,18 +45,24 @@ Base = declarative_base()
 
 
 # ---------------------------------------------------------------------------
-# Dependency helpers                                                        
+# Dependency helper – async only                                           
 # ---------------------------------------------------------------------------
 
 
-def get_db() -> Generator[Session, None, None]:  # legacy sync dependency
-    db = SyncSessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+# NOTE:  During the incremental migration the project exposed two separate
+# providers (get_db for *sync* and get_async_db for *async* usage).  Now that
+# every consumer has been ported we collapse the API back to a single
+# ``get_db`` helper that yields an *AsyncSession*.
 
 
-async def get_async_db() -> AsyncGenerator[AsyncSession, None]:
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
+    """FastAPI dependency that provides an AsyncSession per-request."""
+
     async with AsyncSessionLocal() as session:
         yield session
+
+
+# Temporary alias so that any yet-to-be-updated import continues to work.
+get_async_db = get_db  # type: ignore[assignment]
+
+

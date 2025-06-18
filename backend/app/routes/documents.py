@@ -484,9 +484,10 @@ async def process_document_async(
     except Exception as e:
         # Update document with error
         try:
-            document = db.query(Document).filter(
-                Document.id == document_id
-            ).first()
+            from sqlalchemy import select
+
+            stmt_doc = select(Document).where(Document.id == document_id)
+            document = await db.scalar(stmt_doc)
 
             if document:
                 document.status = "error"

@@ -5,12 +5,11 @@ Authentication and user-loading dependency providers for FastAPI.
 """
 
 from fastapi import Depends, HTTPException, Request, WebSocket  # type: ignore[import-error]
-from sqlalchemy.orm import Session  # type: ignore[import-error]
 from sqlalchemy.ext.asyncio import AsyncSession  # type: ignore[import-error]
-from sqlalchemy.future import select  # type: ignore[import-error]
+from sqlalchemy import select  # type: ignore[import-error]
 
 from ..core.config import settings
-from ..core.database import get_db, get_async_db
+from ..core.database import get_db
 from ..models.user import User
 from ..services.security import SecurityService
 from ..services.email import EmailService
@@ -40,9 +39,14 @@ def get_email_service() -> EmailService:
     )
 
 
-def get_current_user(
+# ---------------------------------------------------------------------------
+# Auth helpers – now fully async                                            
+# ---------------------------------------------------------------------------
+
+
+async def get_current_user(
     request: Request,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     security_service: SecurityService = Depends(get_security_service),
 ) -> User:
     """Extract and validate the current user from the JWT stored in cookies."""
@@ -58,7 +62,8 @@ def get_current_user(
     except ValueError as exc:
         raise HTTPException(status_code=401, detail="Invalid token") from exc
 
-    user = db.query(User).filter(User.id == user_id).first()
+    stmt = select(User).where(User.id == user_id)
+    user = await db.scalar(stmt)
     if user is None or not user.is_active:
         raise HTTPException(status_code=401, detail="User not found or inactive")
 
@@ -68,7 +73,7 @@ def get_current_user(
 async def get_websocket_user(
     websocket: WebSocket,
     security_service: SecurityService = Depends(get_security_service),
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
 ) -> User:
     """Extract and validate the current user from JWT provided via WebSocket."""
     token = (
@@ -88,8 +93,8 @@ async def get_websocket_user(
         await websocket.close(code=4001, reason="Invalid token")
         raise HTTPException(status_code=401, detail="Invalid token") from exc
 
-    result = await db.execute(select(User).filter(User.id == user_id))
-    user = result.scalars().first()
+    stmt = select(User).where(User.id == user_id)
+    user = await db.scalar(stmt)
     if user is None or not user.is_active:
         await websocket.close(code=4001, reason="User not found or inactive")
         raise HTTPException(status_code=401, detail="User not found or inactive")
@@ -104,7 +109,7 @@ def get_connection_manager() -> ConnectionManager:
     return connection_manager
 
 
-def get_chat_service(db: AsyncSession = Depends(get_async_db)) -> ChatService:
+def get_chat_service(db: AsyncSession = Depends(get_db)) -> ChatService:
     """Return a ChatService instance."""
     return ChatService(db)
 
@@ -115,7 +120,7 @@ def get_ai_provider() -> AIProvider:
     return AIProvider()
 
 
-def get_document_service(db: AsyncSession = Depends(get_async_db)) -> DocumentService:
+def get_document_service(db: AsyncSession = Depends(get_db)) -> DocumentService:
     """Return a DocumentService instance."""
     return DocumentService(db)
 

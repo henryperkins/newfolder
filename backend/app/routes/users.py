@@ -1,73 +1,85 @@
+"""User account management routes – async version."""
+
+from __future__ import annotations
+
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from ..core.database import get_db
-from ..core.schemas import UserResponse, UserUpdate, ChangePasswordRequest, MessageResponse
+from ..core.schemas import (
+    UserResponse,
+    UserUpdate,
+    ChangePasswordRequest,
+    MessageResponse,
+)
 from ..models.user import User
 from ..services.security import SecurityService
 from ..dependencies.auth import get_current_user, get_security_service
 
+
 router = APIRouter(prefix="/users", tags=["users"])
 
 
+# ---------------------------------------------------------------------------
+# Helpers                                                                    
+# ---------------------------------------------------------------------------
+
+
 @router.get("/me", response_model=UserResponse)
-async def get_current_user_profile(
-    current_user: User = Depends(get_current_user)
-):
-    """Get current user profile"""
+async def get_current_user_profile(current_user: User = Depends(get_current_user)) -> User:
+    """Return the authenticated user's own profile."""
+
     return current_user
 
 
 @router.patch("/me", response_model=UserResponse)
 async def update_user_profile(
     user_update: UserUpdate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """Update user profile"""
-    update_data = user_update.dict(exclude_unset=True)
-    
-    # Check if email is being updated and if it's already taken
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """Update editable profile fields (email, username, etc.)."""
+
+    update_data = user_update.model_dump(exclude_unset=True)
+
+    # Conflict checks -------------------------------------------------------
     if "email" in update_data:
-        existing_user = db.query(User).filter(
-            User.email == update_data["email"],
-            User.id != current_user.id
-        ).first()
-        if existing_user:
+        stmt_email = select(User).where(User.email == update_data["email"], User.id != current_user.id)
+        if await db.scalar(stmt_email):
             raise HTTPException(status_code=400, detail="Email already registered")
-    
-    # Check if username is being updated and if it's already taken
+
     if "username" in update_data:
-        existing_user = db.query(User).filter(
+        stmt_username = select(User).where(
             User.username == update_data["username"],
-            User.id != current_user.id
-        ).first()
-        if existing_user:
+            User.id != current_user.id,
+        )
+        if await db.scalar(stmt_username):
             raise HTTPException(status_code=400, detail="Username already taken")
-    
-    # Update user
+
+    # Apply updates ---------------------------------------------------------
     for field, value in update_data.items():
         setattr(current_user, field, value)
-    
-    db.commit()
-    db.refresh(current_user)
-    
+
+    await db.commit()
+    await db.refresh(current_user)
+
     return current_user
 
 
 @router.post("/me/change-password", response_model=MessageResponse)
 async def change_password(
     password_data: ChangePasswordRequest,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
-    security_service: SecurityService = Depends(get_security_service)
-):
-    """Change password for authenticated user"""
-    # Verify current password
+    security_service: SecurityService = Depends(get_security_service),
+) -> MessageResponse:
+    """Change the account's password after verifying the current one."""
+
     if not security_service.verify_password(password_data.current_password, current_user.hashed_password):
         raise HTTPException(status_code=401, detail="Current password is incorrect")
-    
-    # Update password
+
     current_user.hashed_password = security_service.hash_password(password_data.new_password)
-    db.commit()
-    
+    await db.commit()
+
     return MessageResponse(message="Password successfully changed")
